@@ -1,5 +1,5 @@
 {
-    "name": "memcache",
+    "name": "@resolute/memcache",
     "version": "0.0.1",
     "description": "Memcache client library based on binary protocol.",
     "main": "lib",
