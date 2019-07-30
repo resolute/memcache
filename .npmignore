@@ -1,0 +1,6 @@
+*.ts
+/bin
+/coverage
+/memcached-latest
+/src
+/test

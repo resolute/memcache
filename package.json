@@ -1,0 +1,45 @@
+{
+    "name": "memcache",
+    "version": "0.0.1",
+    "description": "Memcache client library based on binary protocol.",
+    "main": "lib",
+    "types": "lib",
+    "files": [
+        "lib"
+    ],
+    "scripts": {
+        "build": "npx del-cli lib && npx tsc",
+        "release": "npx np",
+        "prepublishOnly": "npm test",
+        "test": "npm run build && npx ts-node test/index.test",
+        "coverage": "npx c8 npm test",
+        "report": "npm run coverage && npx c8 report --reporter=html && open coverage/index.html"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/resolute/memcache.git"
+    },
+    "license": "MIT",
+    "engines": {
+        "node": ">=10.0.0"
+    },
+    "bugs": {
+        "url": "https://github.com/resolute/memcache/issues"
+    },
+    "homepage": "https://github.com/resolute/memcache",
+    "keywords": [
+        "memcache",
+        "memcached",
+        "binary"
+    ],
+    "dependencies": {},
+    "devDependencies": {
+        "@types/node": "*",
+        "c8": "*",
+        "del-cli": "*",
+        "jsdoc-to-markdown": "*",
+        "ts-node": "*",
+        "tslib": "*",
+        "typescript": "*"
+    }
+}
