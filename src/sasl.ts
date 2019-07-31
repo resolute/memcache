@@ -43,9 +43,11 @@ export default (Base: any) => class extends Base {
         // frontload our auth request if not already in front
         if (this.authBuffer && (this.queue.length === 0 || this.queue[0][0] !== this.authBuffer)) {
             debug('sasl.connect() unshift authBuffer on queue');
-            const request = new MemcacheRequest(this.authBuffer, this.commandTimeout);
-            // Do not start/set the commandTimer for this request because we’re
-            // not sending immediately.
+            // Does _not_ use the commandTimeout, because user is not depending
+            // on this command explicitly. Instead, user commands will timeout
+            // independently and this SASL auth command will also never keep the
+            // Node process running by itself.
+            const request = new MemcacheRequest(this.authBuffer);
             request.promise.catch((error: MemcacheError) => {
                 debug('SASL Error. Destroying socket...');
                 if (this.kill) {

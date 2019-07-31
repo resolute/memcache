@@ -47,13 +47,11 @@ export default (Base: any) => class extends Base {
 
     protected async send(buffer: Buffer): Promise<MemcacheResponse | MemcacheResponse[]> {
         const request = new MemcacheRequest(buffer, this.commandTimeout);
-        request.timer.start();
         return super.send(request);
     }
 
     protected receive(response: MemcacheResponse | MemcacheResponse[]) {
         const request: MemcacheRequest = super.receive(response);
-        request.timer.stop();
         const firstResponse = Array.isArray(response) ? response[0] : response;
         if (firstResponse.status !== 0) {
             request.reject(new MemcacheError({ request, response: firstResponse }));

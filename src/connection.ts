@@ -223,8 +223,8 @@ export default (Base: any) => class extends Base {
                 status: ERR_UNEXPECTED,
                 response: firstResponse
             });
+            console.error(error);
             this.destroy(error);
-            throw error;
         }
         if (this.queue.length === 0) {
             // once this.queue is empty, this socket will _not_ keep the node
@@ -238,7 +238,7 @@ export default (Base: any) => class extends Base {
     // the _handle does not yet exist. This can create too many listeners and
     // trigger a max listeners exceeded warning.
     public ref() {
-        if (this._handle && typeof this._handle.ref === 'function') {
+        if (this._handle) {
             debug('connection.ref()');
             super.ref();
         }
@@ -247,7 +247,7 @@ export default (Base: any) => class extends Base {
 
     // same goes for `unref`
     public unref() {
-        if (this._handle && typeof this._handle.unref === 'function') {
+        if (this._handle) {
             debug('connection.unref()');
             super.unref();
         }
