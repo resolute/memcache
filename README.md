@@ -36,32 +36,26 @@ const cache = memcache(options);
 
 ### Options
 
-| Options                | Default       | Description                                                                                                                                                                                                         |
-| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `port`                 | `11211`       | TCP port the socket should connect to.                                                                                                                                                                              |
-| `host`                 | `'127.0.0.1'` | Host the socket should connect to.                                                                                                                                                                                  |
-| `path`                 | `undefined`   | Path the client should connect to. See [Identifying paths for IPC connections](https://nodejs.org/api/net.html#net_identifying_paths_for_ipc_connections). If provided, the TCP-specific options above are ignored. |
-| `queueSize`            | `Infinity`    | Number of requests queued internally (in Node) when Socket.write() is busy.                                                                                                                                         |
-| `maxKeySize`           | `250`         | Max byte size for any key.                                                                                                                                                                                          |
-| `maxValueSize`         | `1_048_576`   | Max byte size for any value.                                                                                                                                                                                        |
-| `connectTimeout`       | `2_000`       | Milliseconds connecting can take before being terminated and retried.                                                                                                                                               |
-| `multiResponseOpCodes` | `[0x10]`      | Array of Memcached OpCodes that return multiple responses for a single request. Default: array of only [`stat`](#stat)’s OpCode (`0x10`).                                                                           |
-| `retries`              | `Infinity`    | Maximum number of reconnection attempts before emitting [`kill` event](#kill-event).                                                                                                                                |
-| `minDelay`             | `100`         | Milliseconds used as initial incremental backoff for reconnection attempts.                                                                                                                                         |
-| `maxDelay`             | `30_000`      | Maximum milliseconds between reconnection attempts.                                                                                                                                                                 |
-| `backoff`              | `Function`    | [Backoff](#backoff) function called between retry attempts. Default: incremental backoff function.                                                                                                                  |
-| `username`             | `undefined`   | SASL username.                                                                                                                                                                                                      |
-| `password`             | `undefined`   | SASL password.                                                                                                                                                                                                      |
-| `ttl`                  | `0`           | Default TTL in seconds, Dates may _not_ be used for default TTL. See [Expiration Time](#expiration-time).                                                                                                           |
-| `commandTimeout`       | `4_000`       | Milliseconds any command may take before rejecting. See [Timeouts](#timeouts).                                                                                                                                      |
-| **`compression`**      |               | [Compression](#compression) options or  `false` to disable.                                                                                                                                                         |
-| **`serialization`**    |               | `false` to disable.                                                                                                                                                                                                 |
-| `stringFlag`           | `0`           | Bitmask flag to identify value stored as a string.                                                                                                                                                                  |
-| `jsonFlag`             | `0b10`        | Bitmask flag to identify value stored as JSON.                                                                                                                                                                      |
-| `binaryFlag`           | `0b100`       | Bitmask flag to identify value stored as binary/blob.                                                                                                                                                               |
-| `numberFlag`           | `0b1000`      | Bitmask flag to identify value stored as a number.                                                                                                                                                                  |
-| `serialize`            | `Function`    | **Default**: `JSON.stringify`. See [Serialization](#serialization).                                                                                                                                                 |
-| `deserialize`          | `Function`    | **Default**: `JSON.parse`. See [Serialization](#serialization).                                                                                                                                                     |
+| Options                | Default                 | Description                                                                                                                                                                                                         |
+| ---------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `port`                 | `11211`                 | TCP port the socket should connect to.                                                                                                                                                                              |
+| `host`                 | `'127.0.0.1'`           | Host the socket should connect to.                                                                                                                                                                                  |
+| `path`                 | `undefined`             | Path the client should connect to. See [Identifying paths for IPC connections](https://nodejs.org/api/net.html#net_identifying_paths_for_ipc_connections). If provided, the TCP-specific options above are ignored. |
+| `queueSize`            | `Infinity`              | Number of requests queued internally (in Node) when Socket.write() is busy.                                                                                                                                         |
+| `maxKeySize`           | `250`                   | Max byte size for any key.                                                                                                                                                                                          |
+| `maxValueSize`         | `1_048_576`             | Max byte size for any value.                                                                                                                                                                                        |
+| `connectTimeout`       | `2_000`                 | Milliseconds connecting can take before being terminated and retried.                                                                                                                                               |
+| `multiResponseOpCodes` | `[0x10]`                | Array of Memcached OpCodes that return multiple responses for a single request. Default: array of only [`stat`](#stat)’s OpCode (`0x10`).                                                                           |
+| `retries`              | `Infinity`              | Maximum number of reconnection attempts before emitting [`kill` event](#kill-event).                                                                                                                                |
+| `minDelay`             | `100`                   | Milliseconds used as initial incremental backoff for reconnection attempts.                                                                                                                                         |
+| `maxDelay`             | `30_000`                | Maximum milliseconds between reconnection attempts.                                                                                                                                                                 |
+| `backoff`              | *(incremental backoff)* | [Backoff](#backoff) function called between retry attempts.                                                                                                                                                         |
+| `username`             | `undefined`             | SASL username.                                                                                                                                                                                                      |
+| `password`             | `undefined`             | SASL password.                                                                                                                                                                                                      |
+| `ttl`                  | `0`                     | Default TTL in seconds, Dates may _not_ be used for default TTL. See [Expiration Time](#expiration-time).                                                                                                           |
+| `commandTimeout`       | `4_000`                 | Milliseconds any command may take before rejecting. See [Timeouts](#timeouts).                                                                                                                                      |
+| `compression`          |                         | [Compression](#compression) options or  `false` to disable.                                                                                                                                                         |
+| `serialization`        |                         | [Serialization](#serialization) options or `false` to disable.                                                                                                                                                      |
 
 ## Timeouts
 
@@ -69,17 +63,19 @@ This client provides two timeout options, `connectTimeout` and `commandTimeout`.
 
 The `connectTimeout` is simply the number of milliseconds the `Socket.connect()`
 method must take to connect to the server. This also applies to any reconnection
-attempts. The default timeout is suitable for most applications.
+attempts. The importance of the `connectTimeout` is much less significant than
+the `commandTimeout` for most applications.
 
 The `commandTimeout` option is the most important timeout to specify. It marks
 the time from when you issue an command up until the _complete_ response is
 returned from the server. This ensures that your command will complete or fail
-within the configured `commandTimeout` milliseconds. Many things could happen
-that could cause delays: network degradation, server flapping, etc. Regardless
-of the reason, you can be confident that your commands will _always_ succeed or
-fail within the specified number of milliseconds. You may then decide to poll
-the data source if this occurs without wasting time for what _should be_ a fast
-cache lookup.
+within the configured `commandTimeout` milliseconds.
+
+Many things could happen that could cause delays: network degradation, server
+flapping, etc. Regardless of the reason, you can be confident that your commands
+will _always_ succeed or fail within the specified number of milliseconds. You
+may then decide to poll the data source if this occurs without wasting time for
+what _should be_ a fast cache lookup.
 
 For example, If you’re using Memcache to store SQL responses, you may wish to
 configure a low `commandTimeout` like `200` milliseconds. If the server becomes
@@ -99,8 +95,8 @@ immediately reject with the error causing the connection `kill` event.
 ## Backoff
 
 The internal backoff is simply a function of `attempt * minDelay` until it
-exceeds `maxDelay`. The following example shows how to configure exponential
-backoff:
+exceeds `maxDelay`. The following example shows how to implement exponential
+backoff if preferred:
 
 ```js
   const { get, set, … } = memcache({
@@ -170,12 +166,14 @@ of specified key has changed, your operation will fail. This is useful for
 resolving race conditions.
 
 ``` js
+const { ERR_KEY_EXISTS } = require('@resolute/memcache/error');
+const { set } = memcache();
 const { value, cas } = await set('foo', 'abc');
 // another process mutates the value
 try {
     await append('foo', 'def', { cas });
 } catch (error) {
-    if (error.status === memcache.ERR_KEY_EXISTS) {
+    if (error.status === ERR_KEY_EXISTS) {
       // 'foo' has changed since we last `set`
     }
 }
@@ -196,13 +194,13 @@ of any [MemcacheResponse](#memcacheresponse) using the `.flags` getter.
 
 ## Compression
 
-| Options      | Default        | Description                                                              |
-| ------------ | -------------- | ------------------------------------------------------------------------ |
-| `flag`       | `0b1`          | Compression bitmask.                                                     |
-| `options`    | `{ level: 1 }` | See [Zlib Options](https://nodejs.org/api/zlib.html#zlib_class_options). |
-| `threshold`  | `1_048_576`    | Compress values larger than `threshold`. TODO: default to maxValueSize   |
-| `compress`   | `Function`     | `promisify`’d `zlib.gzip`.                                               |
-| `decompress` | `Function`     | `promisify`’d `zlib.gunzip`.                                             |
+| Options      | Default                  | Description                                                              |
+| ------------ | ------------------------ | ------------------------------------------------------------------------ |
+| `flag`       | `0b1`                    | Compression bitmask.                                                     |
+| `options`    | `{ level: 1 }`           | See [Zlib Options](https://nodejs.org/api/zlib.html#zlib_class_options). |
+| `threshold`  | `maxValueSize`           | Compress values larger than `threshold`.                                 |
+| `compress`   | `promisify(zlib.gzip)`   |                                                                          |
+| `decompress` | `promisify(zlib.gunzip)` |                                                                          |
 
 By default, the client uses `promisify`’d Node’s internal `zlib.gzip` and
 `zlib.gunzip` for values that exceed `compression.threshold`.
@@ -229,11 +227,21 @@ TODO: overloading Compression and also Serialization
 
 ## Serialization
 
-All `value`s are sent to the server as a `Buffer` over the binary protocol. By
-default, the client performs useful transformations in the following order:
+| Options       | Default          | Description                                           |
+| ------------- | ---------------- | ----------------------------------------------------- |
+| `stringFlag`  | `0`              | Bitmask flag to identify value stored as a string.    |
+| `jsonFlag`    | `0b10`           | Bitmask flag to identify value stored as JSON.        |
+| `binaryFlag`  | `0b100`          | Bitmask flag to identify value stored as binary/blob. |
+| `numberFlag`  | `0b1000`         | Bitmask flag to identify value stored as a number.    |
+| `serialize`   | `JSON.stringify` |                                                       |
+| `deserialize` | `JSON.parse`     |                                                       |
+
+All `value`s are sent to and received from the server as a `Buffer` over the
+binary protocol. By default, the client performs useful transformations in the
+following order:
 
 1. Serialization.
-   1. **undefined** is sent as a 0-byte `Buffer` and no flags are set.
+   1. **undefined** is sent as a 0-byte `Buffer` and `jsonFlag` is set.
    2. **string** is converted to `Buffer` and `stringFlag` is set.
    3. **number** is converted to a `string` then `Buffer` and `numberFlag` is
       set.
@@ -242,14 +250,12 @@ default, the client performs useful transformations in the following order:
    5. **Any** other non-Buffer type (`object`, `array`, `boolean`, `null`, etc.)
       is passed to `JSON.stringify`, converted to `Buffer` and `jsonFlag` is
       set.
-2. Compression.
-   1. If the serialized `Buffer` length exceeds the `compression.threshold` it is
-      compressed and `compression.flag` is set.
-
-During retrieval commands (`get`, `gat`), the reverse transformations are
-evaluated based on the `flags` of the response and performed accordingly. The
-resulting `MemcacheResponse.value` will match the `value` passed during the
-storage command.
+2. Deserialization.
+   1. `binaryFlag`: `response.value` as-is (a `Buffer`)
+   2. `stringFlag`: `response.value.toString()`
+   3. `numberFlag`: `Number(response.value.toString())`
+   4. `jsonFlag`: `undefined` if `response.value.length === 0` otherwise, return
+      of `deserialize(response.value)`
 
 You may substitute the default JSON serialize with your own or with powerful
 alternatives like
@@ -260,10 +266,11 @@ Example using fast-json-stable-stringify:
 ```js
 const { promisify } = require('util');
 const { stringifyAsync, parseAsync } = require('yieldable-json');
-const cache = memcache({
+const serialization = {
     serialize: promisify(stringifyAsync),
     deserialize: promisify(parseAsync)
-})
+};
+const { get, set, … } = memcache({ serialization })
 ```
 
 ## Buffer
@@ -283,21 +290,28 @@ const { value } = await get('foo');
 console.log(typeof value); // string, expected number
 ```
 
-This is because the `incr` and `decr` commands _will only_ set flags to 0 when
-setting the `initial` value. Instead of performing a `get`, you could issue an
-`incr(key, 0)` to read the number as illustrated here:
+This is because the `incr` and `decr` commands do _not_ accept a flags
+parameter. If the key does not already exist, then these commands will set the
+value to the `initial` value (or `0` if not specified). When this happens, the
+flags for that key will be set to `0`. As a result, it is not guaranteed that
+you will receive the value as a number on a subsequent `get`.
+
+Because the `incr` and `decr` commands always return the `value` as a number
+_after_ performing the command, you may simply issue a `incr(key, 0)` to read
+the value as a number as illustrated below. While this approach guarantees that
+the response value is a number, it will also create the key if it doesn’t exist.
 
 ```js
 const { incr } = memcache();
 await incr('foo', 1, { initial: 1 });
 // ... some time later, you want to check the current value:
 const { value } = await incr('foo', 0);
-console.log(typeof value); // number
-console.log(value); // 1
+console.log(typeof value); // number (always)
+console.log(value); // 1 (or possibly 0 if it didn’t exist)
 ```
 
-Additionally, if another process accidentally changes a value to something other
-than a number, your `incr`/`decr` commands will throw a
+Additionally, if another process changes a value to something other than a
+number, your `incr`/`decr` commands will throw a
 `ERR_INCR_DECR_ON_NON_NUMERIC_VALUE` error.
 
 **Note**: Memcached allows for 64-bit integers, but JavaScript bitwise
@@ -373,21 +387,18 @@ MemcacheError {
 These errors are bound to the `memcache` object and may be referenced like the following example:
 
 ```js
+const { ERR_KEY_NOT_FOUND } = require('@resolute/memcache/error');
 const { get } = memcache();
 try {
     const { value } = await get('foo');
     return value;
 } catch (error) {
     switch (error.status) {
-        case memcache.ERR_KEY_NOT_FOUND:
-            // do something
-            break;
-        case memcache.ERR_OUT_OF_MEMORY:
-            // do something else
+        case ERR_KEY_NOT_FOUND:
+            return undefined;
             break;
         default
-            // rethrow
-            throw error;
+            throw error; // rethrow
             break;
     }
  }
@@ -434,6 +445,7 @@ Get the value for the given key.
 
 **Example**
 ```js
+const { ERR_KEY_NOT_FOUND } = require('@resolute/memcache/error');
 const { get } = memcache();
 try {
     const { value, cas } = await get('foo');
@@ -442,7 +454,7 @@ try {
         cas // “check-and-set” buffer that can be passed as option to almost every other command.
     }
  } catch (error) {
-    if (error.status === memcache.ERR_KEY_NOT_FOUND) {
+    if (error.status === ERR_KEY_NOT_FOUND) {
         return ''; // not found → '' (empty string)
     } else {
         throw error; // re-throw any other error
@@ -565,11 +577,12 @@ the deletion of a key. This common pattern is demonstrated in the example.
 
 **Example**
 ```js
+const { ERR_KEY_NOT_FOUND } = require('@resolute/memcache/error');
 const { del } = memcache();
 try {
     await del('foo');
 } catch (error) {
-    if (error.status !== memcache.ERR_KEY_NOT_FOUND) {
+    if (error.status !== ERR_KEY_NOT_FOUND) {
         throw error; // rethrow any other error
     }
 }
@@ -604,18 +617,19 @@ incr(key, 0)` to retrieve the number. See [Incr/Decr](#incr-decr).
 ```js
 const { incr, del } = memcache();
 
-// unexpected buffer response:
-await del('foo');
-await incr('foo', 1); // initial value defaults to 0, but no flags set
+// example of unexpected `typeof response.value`:
+await del('foo').catch(); // ignore any error
+await incr('foo', 1, { initial: 1 }); // but no flags set
 const { value } = await get('foo');
-value instanceof Buffer; // true
-parseInt(value) === 0; // true
+typeof value === 'string'; // true
+value; // '1'
 
-// expected numeric response:
+// this time, it would be a numeric response:
 await set('foo', 0);
 await incr('foo', 1);
 const { value } = await get('foo');
-value === 1; // true
+typeof value === 'number'; // true
+value; // 1
 ```
 
 ### `decr`
@@ -643,10 +657,11 @@ the counter may cause the counter to wrap.
 
 **Example**
 ```js
-const { decr } = memcache();
-await decr('foo', 1, { initial: 10 }); // foo: 10
-await decr('foo', 1); // foo: 9
-await decr('foo', 10); // foo: 0 (not -1)
+const { decr, del } = memcache();
+await del('foo').catch(); // ignore any error
+await decr('foo', 1, { initial: 10 }); // response.value === 10
+await decr('foo', 1); // response.value === 9
+await decr('foo', 10); // response.value === 0 (not -1)
 ```
 
 ### `append`
@@ -661,10 +676,6 @@ Append the specified value to the given key.
 **Returns**: <code>Promise&lt;[MemcacheResponse](#memcacheresponse)&lt;void&gt;&gt;</code>
 
 **Throws**: If `key` does not exist.
-
-**Note:** Do not accidentally `JSON.stringify()` the request value as this would
-introduce quotes around your string. See [Serialization](#serialization) for
-more information.
 
 **See**: [`prepend`](#prepend)
 
@@ -688,10 +699,6 @@ Prepend the specified value to the given key.
 **Returns**: <code>Promise&lt;[MemcacheResponse](#memcacheresponse)&lt;void&gt;&gt;</code>
 
 **Throws**: If `key` does not exist.
-
-**Note:** Do not accidentally `JSON.stringify()` the request value as this would
-introduce quotes around your string. See [Serialization](#serialization) for
-more information.
 
 **See**: append
 
@@ -754,10 +761,13 @@ optional `ttl` parameter.
 
 **Returns**: <code>Promise&lt;[MemcacheResponse](#memcacheresponse)&lt;void&gt;&gt;</code>
 
+**Note**: If `ttl` is unspecified, then it will default to `0`—*not* the
+configured default `ttl`.
+
 **Example**
 ```js
 const { flush } = memcache();
-await flush(); // delete all keys now
+await flush(); // delete all keys immediately
 ```
 
 ### `version`
@@ -781,7 +791,7 @@ of statistics information.
 
 **Returns**: <code>Promise&lt;{Object.&lt;string, string&gt;}&gt;</code>
 
-**Note**: supported `key` options: `'items'`, `'slabs'`, `'sizes'`, but others
+**Note**: supported `key` options: `'slabs'`, `'settings'`, `'sizes'`, but others
 may work depending on your server.
 
 **Example**

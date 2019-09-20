@@ -104,7 +104,6 @@ test.concurrent('version',
 
 // TODO how should this be tested?
 test.concurrent('stat', async () => stat());
-// test.concurrent('stat("items")', async () => stat('items'));
 test.concurrent('stat("slabs")', async () => stat('slabs'));
 test.concurrent('stat("settings")', async () => stat('settings'));
 test.concurrent('stat("sizes")', async () => stat('sizes'));

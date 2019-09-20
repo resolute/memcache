@@ -56,25 +56,35 @@ export = ({
     return request;
   };
 
+  const decoders = ([
+    [binaryFlag, (value: Buffer) => value],
+    [stringFlag, (value: Buffer) => value.toString()],
+    [numberFlag, (value: Buffer) => Number(value.toString())],
+    [jsonFlag, (value: Buffer) => {
+      if (value.length === 0) {
+        return undefined;
+      }
+      return deserialize(value.toString());
+    }],
+  ] as [number, (arg: Buffer) => any][])
+    // Why are we sorting the decoders in descending order of the corresponding
+    // configurable flag? Some commands (ex. `incr` and `decr`) allow keys to be
+    // created without flags. In those scenarios, the `<MemcacheResponse>.flags`
+    // will be `0`. Depending on which decoder flag is configured as `0`, it
+    // might be applied instead of another. For example, by default,
+    // `stringFlag`=0 and would decode every response as a string if we evaulate
+    // it first. So, we sort these decoders in descending order of the
+    // configured flags so that one configured with a `0` flag is evaluated last
+    // and performed if and only if no other flags matched.
+    .sort(([a], [b]) => b - a);
+
   const decoder: Decoder = async <V>(response: MemcacheResponse<Buffer>) => {
-    if ((response.flags & binaryFlag) === binaryFlag) {
-      // `binaryFlag` will just return the buffer as-is
-      return response as unknown as MemcacheResponse<V>;
-      // This _must_ return as any flag defined as (int) 0 will always get
-      // applied. By default, stringFlag = 0 and would decode every response as
-      // a string. TODO: there might be some better logic to allow users to
-      // define different flags that would need to make this deserialization
-      // more aware and dynamic. For example, if binaryFlag = 0, then test for
-      // other flags first and return if other flags match before returning a
-      // binary/Buffer result.
-    }
-    if ((response.flags & jsonFlag) === jsonFlag) {
-      if (response.value.length === 0) {
-        // @ts-ignore
-        response.value = undefined;
-      } else {
+    // eslint-disable-next-line no-restricted-syntax
+    for (const [flag, decoder] of decoders) {
+      if ((response.flags & flag) === flag) {
         try {
-          response.value = await deserialize(response.value.toString());
+          // eslint-disable-next-line no-await-in-loop
+          response.value = await decoder(response.value);
         } catch (error) {
           throw new MemcacheError({
             message: error.message,
@@ -83,13 +93,8 @@ export = ({
             error,
           });
         }
+        break;
       }
-    } else if ((response.flags & numberFlag) === numberFlag) {
-      // @ts-ignore
-      response.value = Number(response.value.toString());
-    } else if ((response.flags & stringFlag) === stringFlag) {
-      // @ts-ignore
-      response.value = response.value.toString();
     }
     return response as unknown as MemcacheResponse<V>;
   };

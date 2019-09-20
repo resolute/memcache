@@ -269,9 +269,11 @@ const memcache = (options: MemcacheOptions = {}) => {
   };
 
   // default compression
-  register(...normalizeCoder(MemcacheCompression, options.compression));
+  register(...normalizeCoder(MemcacheCompression,
+    { threshold: options.maxValueSize, ...options.compression }));
   // default serialization
-  register(...normalizeCoder(MemcacheSerialization, options.serialization));
+  register(...normalizeCoder(MemcacheSerialization,
+    options.serialization));
 
   return ctx;
 };
