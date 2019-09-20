@@ -1,0 +1,3 @@
+export = () => {
+  process.exit();
+}

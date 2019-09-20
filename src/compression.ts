@@ -1,77 +1,52 @@
 import { gzip, gunzip, constants } from 'zlib';
 import { promisify } from 'util';
+import { CompressionOptions, Encoder, Decoder } from './types';
 
-import MemcacheResponse from './response';
-import MemcacheError, { ERR_COMPRESSION } from './error';
-import { key, value, DefaultOptions, compressFunction, decompressFunction, compressIf } from './types';
-import { toBuffer, extendIfDefined } from './util';
+import MemcacheRequest = require('./request');
+import MemcacheResponse = require('./response');
+import MemcacheError = require('./error');
 
-export default (Base: any) => class extends Base {
-
-    public compressionFlag: number = 1 << 0;
-    public compressIf: compressIf = (key: key, value: Buffer) => value.length > this.maxValueSize;
-    public compressionOptions: any = { level: constants.Z_BEST_SPEED };
-    public compress: compressFunction = promisify(gzip);
-    public decompress: decompressFunction = promisify(gunzip);
-
-    constructor({ compressionFlag, compressIf, compressionOptions, compress, decompress,
-        ...options }: {
-            compressionFlag?: number,
-            compressIf?: compressIf,
-            compressionOptions?: any,
-            compress?: compressFunction,
-            decompress?: decompressFunction,
-        } = {}) {
-
-        super(options);
-
-        extendIfDefined(this, { compressionFlag, compressIf, compressionOptions, compress, decompress })
+export = ({
+  flag = 0b1,
+  threshold = 1_048_576,
+  options = { level: constants.Z_BEST_SPEED },
+  compress = promisify(gzip),
+  decompress = promisify(gunzip),
+}: CompressionOptions = {}): [Encoder, Decoder] => ([
+  // encoder
+  async (request: MemcacheRequest) => {
+    const buffer = request.valueAsBuffer;
+    if (typeof buffer === 'undefined' || buffer.length <= threshold) {
+      return request;
     }
-
-    protected async decode(response: MemcacheResponse) {
-        const responseSuper = await super.decode(response);
-        {
-            const response = responseSuper;
-            if ((response.flags & this.compressionFlag) === 0) {
-                return response;
-            }
-            try {
-                response.value = await this.decompress(response.value, this.compressionOptions);
-            } catch (error) {
-                throw new MemcacheError({
-                    message: error.message,
-                    status: ERR_COMPRESSION,
-                    response,
-                    error
-                });
-            }
-            return response;
-        }
+    try {
+      request.value = await compress(buffer, options);
+      request.flags! |= flag;
+    } catch (error) {
+      throw new MemcacheError({
+        message: error.message,
+        status: MemcacheError.ERR_COMPRESSION,
+        request,
+        error,
+      });
     }
-
-    protected async encode(key: key, value: value, options: DefaultOptions) {
-        const valueBuffer = toBuffer(value);
-        if (!this.compressIf(key, valueBuffer)) {
-            return super.encode(key, value, options);
-        }
-        try {
-            return super.encode(
-                key,
-                // value
-                await this.compress(value, this.compressionOptions),
-                // options
-                {
-                    ...options,
-                    flags: options.flags | this.compressionFlag
-                }
-            );
-        } catch (error) {
-            throw new MemcacheError({
-                message: error.message,
-                status: ERR_COMPRESSION,
-                error
-            });
-        }
+    return request;
+  },
+  // decoder
+  async (response: MemcacheResponse<Buffer>) => {
+    if ((response.flags & flag) !== flag) {
+      return response;
     }
-
-}
+    try {
+      response.value = await decompress(response.value, options);
+    } catch (error) {
+      throw new MemcacheError({
+        message: error.message,
+        status: MemcacheError.ERR_COMPRESSION,
+        response,
+        error,
+      });
+    }
+    return response;
+  },
+])

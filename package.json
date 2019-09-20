@@ -1,45 +1,69 @@
 {
-    "name": "@resolute/memcache",
-    "version": "0.0.3",
-    "description": "Memcache client library based on binary protocol.",
-    "main": "lib",
-    "types": "lib",
-    "files": [
-        "lib"
+  "name": "@resolute/memcache",
+  "version": "0.0.3",
+  "description": "Memcache client library based on binary protocol.",
+  "main": "./",
+  "types": "./",
+  "files": [
+    "./"
+  ],
+  "scripts": {
+    "build": "npm run clean && npx tsc",
+    "release": "npx np",
+    "prepublishOnly": "npm test",
+    "clean": "npx del-cli *.js *.js.map *.d.ts",
+    "test": "npx tsc && ./bin/memcached-sasl.sh && npx jest",
+    "coverage": "npm test -- --coverage && open coverage/lcov-report/index.html"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/resolute/memcache.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=10.0.0"
+  },
+  "bugs": {
+    "url": "https://github.com/resolute/memcache/issues"
+  },
+  "homepage": "https://github.com/resolute/memcache",
+  "keywords": [
+    "memcache",
+    "memcached",
+    "binary"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "@types/jest": "*",
+    "@types/node": "*",
+    "@typescript-eslint/eslint-plugin": "*",
+    "@typescript-eslint/parser": "*",
+    "del-cli": "*",
+    "eslint": "*",
+    "eslint-config-airbnb-base": "*",
+    "eslint-plugin-import": "*",
+    "jest": "*",
+    "p-map": "*",
+    "ts-jest": "*",
+    "ts-node": "*",
+    "tslib": "*",
+    "typescript": "*"
+  },
+  "jest": {
+    "collectCoverage": false,
+    "collectCoverageFrom": [
+      "<rootDir>/*.js"
     ],
-    "scripts": {
-        "build": "npx del-cli lib && npx tsc",
-        "release": "npx np",
-        "prepublishOnly": "npm test",
-        "test": "npm run build && npx ts-node test/index.test",
-        "coverage": "npx c8 npm test",
-        "report": "npm run coverage && npx c8 report --reporter=html && open coverage/index.html"
-    },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/resolute/memcache.git"
-    },
-    "license": "MIT",
-    "engines": {
-        "node": ">=10.0.0"
-    },
-    "bugs": {
-        "url": "https://github.com/resolute/memcache/issues"
-    },
-    "homepage": "https://github.com/resolute/memcache",
-    "keywords": [
-        "memcache",
-        "memcached",
-        "binary"
+    "coverageDirectory": "coverage",
+    "globalSetup": "<rootDir>/test/setup.ts",
+    "globalTeardown": "<rootDir>/test/teardown.ts",
+    "maxConcurrency": 100,
+    "roots": [
+      "<rootDir>/test/"
     ],
-    "dependencies": {},
-    "devDependencies": {
-        "@types/node": "*",
-        "c8": "*",
-        "del-cli": "*",
-        "jsdoc-to-markdown": "*",
-        "ts-node": "*",
-        "tslib": "*",
-        "typescript": "*"
+    "testEnvironment": "node",
+    "transform": {
+      "\\.ts$": "ts-jest"
     }
+  }
 }

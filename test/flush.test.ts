@@ -1,16 +1,18 @@
+/* eslint-disable no-undef */
+
 import { strict as assert } from 'assert';
-import { TestOptions } from './index.test';
+import { portFlush } from './env';
+import { randomString } from './util';
 
-export default async ({ memcache, port, namespace: key }: TestOptions) => {
-    const { flush, set, get } = memcache({ port })
+import memcache = require('..');
+import MemcacheError = require('../error');
 
-    await set(key, 'foo');
-    await flush();
+const key = randomString(7);
+const { ERR_KEY_NOT_FOUND } = MemcacheError;
+const { flush, set, get } = memcache({ port: portFlush });
 
-    try {
-        await get(key);
-    } catch (error) {
-        assert.strictEqual(error.response.status, memcache.ERR_KEY_NOT_FOUND);
-    }
-
-}
+test('better get flushed', async () => {
+  await set(key, 'better get flushed');
+  await flush();
+  return assert.rejects(get(key), { status: ERR_KEY_NOT_FOUND });
+});

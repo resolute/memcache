@@ -1,4 +1,5 @@
 *.ts
+*.js.map
 /bin
 /coverage
 /memcached-latest

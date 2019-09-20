@@ -8,4 +8,4 @@ node_modules
 /lib
 /coverage
 /memcached-latest
-.vscode
+/.clinic

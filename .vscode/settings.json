@@ -1,0 +1,19 @@
+{
+  "eslint.alwaysShowStatus": true,
+  "eslint.autoFixOnSave": true,
+  "eslint.validate": [
+    {
+      "language": "typescript",
+      "autoFix": true
+    },
+  ],
+  "prettier.endOfLine": "lf",
+  "prettier.singleQuote": true,
+  "editor.tabSize": 2,
+  "files.insertFinalNewline": true,
+  "files.exclude": {
+    "**/*.d.ts": true,
+    "**/*.js": true,
+    "**/*.js.map": true
+  }
+}

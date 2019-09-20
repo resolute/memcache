@@ -1,17 +1,25 @@
 {
-    "compilerOptions": {
-        "declaration": true,
-        "module": "commonjs",
-        "moduleResolution": "node",
-        "noUnusedLocals": true,
-        "outDir": "./lib",
-        "pretty": true,
-        "sourceMap": true,
-        "strict": true,
-        "target": "esnext"
-    },
-    "exclude": [
-        "lib",
-        "test"
-    ]
+  "compilerOptions": {
+    "declaration": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "newLine": "lf",
+    "noEmitOnError": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "outDir": ".",
+    "pretty": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "stripInternal": true,
+    "target": "es2017"
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": []
 }
