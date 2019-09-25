@@ -62,14 +62,15 @@ test.concurrent('null', async () => {
   assert.strictEqual(response.flags & jsonFlag, jsonFlag);
 });
 
-// undefined, '', Buffer.alloc(0) are all stored as a zero-length buffer.
+// undefined, '', Buffer.alloc(0) are all stored as a zero-length buffer, but
+// will return differently based on flags set.
 
 test.concurrent('undefined', async () => {
   const key = randomString(7);
   await set(key, undefined);
-  const response = await get<undefined>(key);
-  assert.strictEqual(response.value, undefined);
-  assert.strictEqual(response.flags & jsonFlag, jsonFlag);
+  const response = await get<string>(key);
+  assert.strictEqual(response.value, '');
+  assert.strictEqual(response.flags, stringFlag);
 });
 
 test.concurrent('empty string', async () => {

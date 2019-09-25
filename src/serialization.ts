@@ -18,15 +18,20 @@ export = ({
     // eslint-disable-next-line default-case
     switch (typeof request.value) {
       case 'undefined':
-        request.flags! |= jsonFlag;
         request.value = Buffer.allocUnsafe(0);
         break;
       case 'string':
+        // string will be Buffer.from(<String>) by MemcacheRequest
         request.flags! |= stringFlag;
         break;
       case 'number':
+        // number will be Buffer.from(<Number>.toString()) by MemcacheRequest
         request.flags! |= numberFlag;
         break;
+      case 'function':
+        request.value = (request.value as Function)();
+        // recursive when value is a function
+        return encoder(request);
       case 'boolean':
       case 'object':
         if (isBufferLike(request.value)) {
@@ -49,9 +54,6 @@ export = ({
           }
         }
         break;
-      case 'function':
-        request.value = (request.value as Function)();
-        return encoder(request);
     }
     return request;
   };
@@ -61,6 +63,10 @@ export = ({
     [stringFlag, (value: Buffer) => value.toString()],
     [numberFlag, (value: Buffer) => Number(value.toString())],
     [jsonFlag, (value: Buffer) => {
+      // Protect simple case where an empty value is flagged as JSON. This
+      // wouldn’t happen with the defaults of this client, but it is possible
+      // another client (or a custom config of this client) could create this
+      // scenario.
       if (value.length === 0) {
         return undefined;
       }
@@ -72,7 +78,7 @@ export = ({
     // created without flags. In those scenarios, the `<MemcacheResponse>.flags`
     // will be `0`. Depending on which decoder flag is configured as `0`, it
     // might be applied instead of another. For example, by default,
-    // `stringFlag`=0 and would decode every response as a string if we evaulate
+    // `stringFlag`=0 and would decode every response as a string if we evaluate
     // it first. So, we sort these decoders in descending order of the
     // configured flags so that one configured with a `0` flag is evaluated last
     // and performed if and only if no other flags matched.
