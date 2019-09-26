@@ -1,10 +1,10 @@
 import {
   MemcacheRequestOptions, BufferLike, Ttl, Cas,
 } from './types';
-import { extendIfDefined, toBuffer } from './util';
 
-import MemcacheError = require('./error');
 import MemcacheResponse = require('./response');
+import MemcacheError = require('./error');
+import MemcacheUtil = require('./util');
 
 class MemcacheRequest<T = MemcacheResponse> {
   public opcode!: number;
@@ -22,7 +22,7 @@ class MemcacheRequest<T = MemcacheResponse> {
   private timer?: NodeJS.Timer;
 
   constructor(options: MemcacheRequestOptions) {
-    extendIfDefined(this, options);
+    MemcacheUtil.extendIfDefined(this, options);
 
     const promise = new Promise((resolve, reject) => {
       Object.defineProperties(this, {
@@ -125,11 +125,11 @@ class MemcacheRequest<T = MemcacheResponse> {
   }
 
   public get keyAsBuffer() {
-    return toBuffer(this.key);
+    return MemcacheUtil.toBuffer(this.key);
   }
 
   public get valueAsBuffer() {
-    return toBuffer(this.value);
+    return MemcacheUtil.toBuffer(this.value);
   }
 
   public get extrasLength() {
@@ -153,7 +153,7 @@ class MemcacheRequest<T = MemcacheResponse> {
       return undefined;
     }
     const buffer = (Buffer.isBuffer(this.cas))
-      ? toBuffer(this.cas)
+      ? MemcacheUtil.toBuffer(this.cas)
       : this.cas.cas;
 
     if (buffer && buffer.length === 8) {

@@ -1,9 +1,9 @@
-import { types } from 'util';
 import {
   MemcacheOptions, BufferLike, Ttl, Cas, SetReplace, Add, IncrDecr,
-  CommandOptions, Encoder, Decoder, Funnel,
+  CommandOptions, Encoder, Decoder, Send,
 } from './types';
 
+import util = require('util');
 import MemcacheError = require('./error');
 import MemcacheRequest = require('./request');
 import MemcacheResponse = require('./response');
@@ -23,185 +23,171 @@ const memcache = (options: MemcacheOptions = {}) => {
      * @param key
      */
   const get = async <T>(key: BufferLike) =>
-    decode<MemcacheResponse<T>>(
-      await connection.send(
-        checkKeyLength(
-          new MemcacheRequest({
-            opcode: 0x00, key,
-          }),
-        ),
-      ),
-    );
+    funnel(new MemcacheRequest<MemcacheResponse<T>>({
+      opcode: 0x00,
+      key,
+    })).through([
+      checkKey,
+      send,
+      ...decoders,
+    ]);
 
   const set: SetReplace = async (key: BufferLike, value: any, options?: any) =>
-    connection.send(
-      checkValueLength(
-        checkKeyLength(
-          await encode(
-            new MemcacheRequest<MemcacheResponse<void>>({
-              opcode: 0x01,
-              key,
-              value,
-              ...normalizeOptions(defaultTtl)(options),
-            }),
-          ),
-        ),
-      ),
-    );
+    funnel(new MemcacheRequest<MemcacheResponse<void>>({
+      opcode: 0x01,
+      key,
+      value,
+      ...normalizeOptions(defaultTtl)(options),
+    })).through([
+      ...encoders,
+      checkKey,
+      checkValue,
+      send,
+    ]);
 
   const add: Add = async (key: BufferLike, value: any, options?: any) =>
-    connection.send(
-      checkValueLength(
-        checkKeyLength(
-          await encode(
-            new MemcacheRequest<MemcacheResponse<void>>({
-              opcode: 0x02,
-              key,
-              value,
-              ...normalizeOptions(defaultTtl)(options),
-            }),
-          ),
-        ),
-      ),
-    );
+    funnel(new MemcacheRequest<MemcacheResponse<void>>({
+      opcode: 0x02,
+      key,
+      value,
+      ...normalizeOptions(defaultTtl)(options),
+    })).through([
+      ...encoders,
+      checkKey,
+      checkValue,
+      send,
+    ]);
 
   const replace: SetReplace = async (key: BufferLike, value: any, options?: any) =>
-    connection.send(
-      checkValueLength(
-        checkKeyLength(
-          await encode(
-            new MemcacheRequest<MemcacheResponse<void>>({
-              opcode: 0x03,
-              key,
-              value,
-              ...normalizeOptions(defaultTtl)(options),
-            }),
-          ),
-        ),
-      ),
-    );
+    funnel(new MemcacheRequest<MemcacheResponse<void>>({
+      opcode: 0x03,
+      key,
+      value,
+      ...normalizeOptions(defaultTtl)(options),
+    })).through([
+      ...encoders,
+      checkKey,
+      checkValue,
+      send,
+    ]);
 
 
   const del = async (key: BufferLike) =>
-    connection.send(
-      checkKeyLength(
-        new MemcacheRequest<MemcacheResponse<void>>({
-          opcode: 0x04, key,
-        }),
-      ),
-    );
+    funnel(new MemcacheRequest<MemcacheResponse<void>>({
+      opcode: 0x04,
+      key,
+    })).through([
+      checkKey,
+      send,
+    ]);
 
-  const incr: IncrDecr = async (key: BufferLike, amount: number, options?: any) => {
-    const request = new MemcacheRequest<MemcacheResponse<number>>({
+  const incr: IncrDecr = async (key: BufferLike, amount: number, options?: any) =>
+    funnel(new MemcacheRequest<MemcacheResponse<number>>({
       opcode: 0x05,
       key,
       amount: sanitizeAmount(amount),
       ...normalizeOptions(defaultTtl)(options),
-    });
-    const response = await connection.send(
-      checkKeyLength(
-        request,
-      ),
-    );
-    response.value = response.rawValue.readUInt32BE(4);
-    return response;
-  };
+    })).through([
+      checkKey,
+      send,
+      setIncrDecrValue,
+    ]);
 
-  const decr: IncrDecr = async (key: BufferLike, amount: number, options?: any) => {
-    const request = new MemcacheRequest<MemcacheResponse<number>>({
+  const decr: IncrDecr = async (key: BufferLike, amount: number, options?: any) =>
+    funnel(new MemcacheRequest<MemcacheResponse<number>>({
       opcode: 0x06,
       key,
       amount: sanitizeAmount(amount),
       ...normalizeOptions(defaultTtl)(options),
-    });
-    const response = await connection.send(
-      checkKeyLength(
-        request,
-      ),
-    );
-    response.value = response.rawValue.readUInt32BE(4);
-    return response;
-  };
+    })).through([
+      checkKey,
+      send,
+      setIncrDecrValue,
+    ]);
 
   const append = async (key: BufferLike, value: BufferLike, cas?: Cas) =>
-    connection.send(
-      checkKeyLength(
-        new MemcacheRequest<MemcacheResponse<void>>({
-          opcode: 0x0e, key, value, cas,
-        }),
-      ),
-    );
+    funnel(new MemcacheRequest<MemcacheResponse<void>>({
+      opcode: 0x0e,
+      key,
+      value,
+      cas,
+    })).through([
+      checkKey,
+      send,
+    ]);
 
   const prepend = async (key: BufferLike, value: BufferLike, cas?: Cas) =>
-    connection.send(
-      checkKeyLength(
-        new MemcacheRequest<MemcacheResponse<void>>({
-          opcode: 0x0f, key, value, cas,
-        }),
-      ),
-    );
+    funnel(new MemcacheRequest<MemcacheResponse<void>>({
+      opcode: 0x0f,
+      key,
+      value,
+      cas,
+    })).through([
+      checkKey,
+      send,
+    ]);
 
   const touch = async (key: BufferLike, ttl: Ttl) =>
-    connection.send(
-      checkKeyLength(
-        new MemcacheRequest<MemcacheResponse<void>>({
-          opcode: 0x1c, key, ttl: sanitizeTtl(defaultTtl)(ttl),
-        }),
-      ),
-    );
+    funnel(new MemcacheRequest<MemcacheResponse<void>>({
+      opcode: 0x1c,
+      key,
+      ttl: sanitizeTtl(defaultTtl)(ttl),
+    })).through([
+      checkKey,
+      send,
+    ]);
 
   const gat = async <T>(key: BufferLike, ttl: Ttl) =>
-    decode<MemcacheResponse<T>>(
-      await connection.send(
-        checkKeyLength(
-          new MemcacheRequest({
-            opcode: 0x1d, key, ttl: sanitizeTtl(defaultTtl)(ttl),
-          }),
-        ),
-      ),
-    );
+    funnel(new MemcacheRequest<MemcacheResponse<T>>({
+      opcode: 0x1d,
+      key,
+      ttl: sanitizeTtl(defaultTtl)(ttl),
+    })).through([
+      checkKey,
+      send,
+      ...decoders,
+    ]);
 
   const version = async () =>
-    (await connection.send<MemcacheResponse<Buffer>>(new MemcacheRequest({
+    funnel(new MemcacheRequest<MemcacheResponse<Buffer>>({
       opcode: 0x0b,
-    }))).value.toString();
+    })).through([
+      send,
+    ]).then(({ value }) => value.toString());
 
-  const stat = async (key?: BufferLike) => {
-    const request = new MemcacheRequest<MemcacheResponse<Buffer>[]>({
-      opcode: 0x10, key,
-    });
-    if (key) {
-      // key is not required, but when required, must conform.
-      checkKeyLength(request);
-    }
-    const responses = await connection.send(request);
-    return responses.reduce((carry, { key, value }) => {
+  const stat = async (key?: BufferLike) =>
+    funnel(new MemcacheRequest<MemcacheResponse<Buffer>[]>({
+      opcode: 0x10,
+      key,
+    })).through([
+      ...(!key ? [] : [checkKey]),
+      send,
+    ]).then((responses) => responses.reduce((carry, { key, value }) => {
       // eslint-disable-next-line no-param-reassign
       carry[key.toString()] = value.toString();
       return carry;
-    }, {} as { [property: string]: string });
-  };
+    }, {} as { [property: string]: string }));
 
-  // If unspecified, users expect the TTL to be immediate for `flush`.
   const flush = async (ttl?: Ttl) =>
-    connection.send(
-      new MemcacheRequest<MemcacheResponse<void>>({
-        opcode: 0x08, ttl: sanitizeTtl(0)(ttl),
-      }),
-    );
+    funnel(new MemcacheRequest<MemcacheResponse<void>>({
+      opcode: 0x08,
+      // If unspecified, users expect the TTL to be immediate for `flush`.
+      ttl: sanitizeTtl(0)(ttl),
+    })).through([
+      send,
+    ]);
 
   // Memcache Client Context
 
   const defaultTtl = options.ttl || 0;
   const connection = new MemcacheConnection(options);
+  const send = connection.send.bind(connection);
   const encoders: Encoder[] = [];
   const decoders: Decoder[] = [];
-  const encode = funnel(encoders);
-  const decode = funnel(decoders);
   const maxKeySize = options.maxKeySize !== undefined ? options.maxKeySize : 250;
   const maxValueSize = options.maxValueSize !== undefined ? options.maxValueSize : 1_048_576;
 
-  const checkKeyLength = <T extends MemcacheRequest<any>>(request: T) => {
+  const checkKey = <T>(request: MemcacheRequest<T>) => {
     const { keyAsBuffer } = request;
     let keyLength = 0;
     /* istanbul ignore else */
@@ -217,7 +203,8 @@ const memcache = (options: MemcacheOptions = {}) => {
     }
     return request;
   };
-  const checkValueLength = <T extends MemcacheRequest<any>>(request: T) => {
+
+  const checkValue = <T>(request: MemcacheRequest<T>) => {
     const { valueAsBuffer } = request;
     let valueLength = 0;
     if (valueAsBuffer) {
@@ -232,6 +219,7 @@ const memcache = (options: MemcacheOptions = {}) => {
     }
     return request;
   };
+
   const register = (encoder?: Encoder, decoder?: Decoder) => {
     if (encoder) {
       encoders.unshift(encoder);
@@ -262,50 +250,50 @@ const memcache = (options: MemcacheOptions = {}) => {
     decrement: decr,
     on: connection.on.bind(connection),
     kill: connection.kill.bind(connection),
-    send: connection.send.bind(connection),
+    send,
     destroy: connection.destroy.bind(connection),
     connection, // underlying Socket
     register,
   };
 
   // default compression
-  register(...normalizeCoder(MemcacheCompression,
-    { threshold: options.maxValueSize, ...options.compression }));
+  if (options.compression !== false) {
+    register(...MemcacheCompression({
+      threshold: options.maxValueSize,
+      ...options.compression,
+    }));
+  }
   // default serialization
-  register(...normalizeCoder(MemcacheSerialization,
-    options.serialization));
+  if (options.serialization !== false) {
+    register(...MemcacheSerialization(
+      options.serialization,
+    ));
+  }
 
   return ctx;
 };
 
 export = memcache;
 
-const normalizeCoder = (
-  factory: typeof MemcacheCompression | typeof MemcacheSerialization,
-  options: MemcacheOptions['compression'] | MemcacheOptions['serialization'],
-): [Encoder?, Decoder?] => {
-  if (options === false) {
-    return [];
-  }
-  return factory(options);
-};
-
 const normalizeOptions = (defaultTtl: number) => (options?: Ttl | CommandOptions) => {
   if (
     typeof options === 'undefined' ||
     typeof options === 'number' ||
-    types.isDate(options)
+    util.types.isDate(options)
   ) {
     return { flags: 0, ttl: sanitizeTtl(defaultTtl)(options) };
   }
   return { flags: 0, ...options, ttl: sanitizeTtl(defaultTtl)(options.ttl) };
 };
 
-const funnel: Funnel = (fns: any[]) => async (initial: any) => fns
-  .reduce(
-    async (value, fn) => fn(await value),
-    initial,
-  );
+const funnel = <T>(initial: MemcacheRequest<T>) => ({
+  through: async (fns: (Encoder | Decoder | Send)[]): Promise<T> => fns
+    .reduce(
+      // @ts-ignore
+      async (value: any, fn) => fn(await value),
+      initial,
+    ),
+});
 
 const sanitizeAmount = (arg: number | string) => {
   let n = arg;
@@ -329,7 +317,7 @@ const sanitizeTtl = (defaultTtl: number) => (ttl?: Ttl) => {
   if (typeof ttl === 'number') {
     seconds = ttl;
   } else if (
-    types.isDate(ttl)
+    util.types.isDate(ttl)
     && !Number.isNaN(ttl.valueOf())
   ) {
     seconds = (ttl.valueOf() - new Date().valueOf()) / 1000;
@@ -343,4 +331,9 @@ const sanitizeTtl = (defaultTtl: number) => (ttl?: Ttl) => {
     return Math.max(0, Math.floor(seconds));
   }
   return defaultTtl;
+};
+
+const setIncrDecrValue: Decoder = <T>(response: MemcacheResponse<Buffer>) => {
+  (response.value as unknown as number) = response.rawValue.readUInt32BE(4);
+  return response as unknown as MemcacheResponse<T>;
 };

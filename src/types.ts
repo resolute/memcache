@@ -1,4 +1,5 @@
 import { ZlibOptions } from 'zlib';
+import { SocketConnectOpts } from 'net';
 
 import MemcacheRequest = require('./request');
 import MemcacheResponse = require('./response');
@@ -9,16 +10,15 @@ export type Ttl = number | Date;
 export type Cas = MemcacheResponse<unknown> | Buffer;
 
 export interface Encoder {
-  (request: MemcacheRequest): Promise<MemcacheRequest>;
+  <T>(request: MemcacheRequest<T>): Promise<MemcacheRequest<T>> | MemcacheRequest<T>;
 }
 
 export interface Decoder {
-  (response: MemcacheResponse<Buffer>): Promise<MemcacheResponse<Buffer>>;
+  <T>(response: MemcacheResponse<Buffer>): Promise<MemcacheResponse<T>> | MemcacheResponse<T>;
 }
 
-export interface Funnel {
-  (fns: Encoder[]): <T>(initial: T) => Promise<T>;
-  (fns: Decoder[]): <T>(initial: T) => Promise<T>;
+export interface Send {
+  <T>(request: MemcacheRequest<T>): Promise<T>;
 }
 
 export interface SetReplace {
@@ -87,3 +87,5 @@ export interface SerializationOptions {
   serialize?: (value: any, options?: any) => Promise<Buffer | string> | Buffer | string;
   deserialize?: (value: string, options?: any) => Promise<any> | any;
 }
+
+export interface SocketConnectOpts { }

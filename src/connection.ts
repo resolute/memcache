@@ -1,15 +1,17 @@
-import { debuglog, inspect } from 'util';
-import { SocketConnectOpts, Socket } from 'net';
-import { extendIfDefined } from './util';
+import { SocketConnectOpts } from 'net';
 import { MemcacheOptions } from './types';
+
+import net = require('net');
+import util = require('util');
 
 import MemcacheRequest = require('./request');
 import MemcacheResponse = require('./response');
 import MemcacheError = require('./error');
+import MemcacheUtil = require('./util');
 
-const debug = debuglog('memcache:connection');
+const debug = util.debuglog('memcache:connection');
 
-class Connection extends Socket {
+class Connection extends net.Socket {
   // config
   public readonly host = '127.0.0.1';
   public readonly port = 11211;
@@ -31,7 +33,6 @@ class Connection extends Socket {
 
   // protected state
   protected queue: MemcacheRequest<any>[] = [];
-  protected socketConnectOptions: SocketConnectOpts;
   protected killed: MemcacheError | false = false;
 
   // private state
@@ -50,7 +51,7 @@ class Connection extends Socket {
   }: Partial<MemcacheOptions>) {
     super();
 
-    extendIfDefined(this, {
+    MemcacheUtil.extendIfDefined(this, {
       host,
       port,
       path,
@@ -64,12 +65,6 @@ class Connection extends Socket {
       username,
       password,
       multiResponseOpCodes,
-    });
-
-    this.socketConnectOptions = socketConnectOptions({
-      port: this.port,
-      host: this.host,
-      path: this.path,
     });
 
     this
@@ -113,7 +108,7 @@ class Connection extends Socket {
         }
         if (this.attempt >= this.retries) {
           this.kill(new MemcacheError({
-            message: `Failed to connect to ${inspect(this.socketConnectOptions)} after ${this.attempt.toLocaleString()} attempt${this.attempt !== 1 ? 's' : /* istanbul ignore next */ ''}.`,
+            message: `Failed to connect to ${this.socketConnectString} after ${this.attempt.toLocaleString()} attempt${this.attempt !== 1 ? 's' : /* istanbul ignore next */ ''}.`,
             status: MemcacheError.ERR_CONNECTION,
           }));
           return;
@@ -144,14 +139,14 @@ class Connection extends Socket {
   }
 
   public connect() {
-    debug('connect(%s)', inspect(this.socketConnectOptions));
+    debug('connect(%s)', this.socketConnectString);
     // The connect timer is unref()’d as it should never keep the Node process
     // from terminating by itself.
     this.connectTimer = setTimeout(
       () => {
         debug('`connectTimer` expired');
         this.destroy(new MemcacheError({
-          message: `Connection to ${inspect(this.socketConnectOptions)} exceeded ${this.connectTimeout.toLocaleString()} ms timeout.`,
+          message: `Connection to ${this.socketConnectString} exceeded ${this.connectTimeout.toLocaleString()} ms timeout.`,
           status: MemcacheError.ERR_CONNECTION,
         }));
       },
@@ -183,7 +178,7 @@ class Connection extends Socket {
         // commands to proceed.
         if (error.status === MemcacheError.ERR_UNKNOWN_COMMAND) {
           debug('sasl not supported by server, disabling sasl on the client');
-          process.emitWarning(`server ${inspect(this.socketConnectOptions)} does not support SASL. Disabling SASL on the client.`, 'MemcacheWarning');
+          process.emitWarning(`server at ${this.socketConnectString} does not support SASL. Disabling SASL on the client.`, 'MemcacheWarning');
           this.username = undefined;
           this.password = undefined;
         } else {
@@ -360,16 +355,20 @@ class Connection extends Socket {
     this.destroy(this.killed);
     this.emit('kill', this.killed);
   }
+
+  public get socketConnectOptions(): SocketConnectOpts {
+    if (typeof this.path === 'string' && this.path.length > 0) {
+      return { path: this.path };
+    }
+    return { host: this.host, port: this.port };
+  }
+
+  public get socketConnectString() {
+    if (typeof this.path === 'string' && this.path.length > 0) {
+      return this.path;
+    }
+    return `${this.host}:${this.port}`;
+  }
 }
 
 export = Connection;
-
-const socketConnectOptions = (
-  { port, host, path }:
-    Required<Pick<MemcacheOptions, 'host' | 'port'>> & Pick<MemcacheOptions, 'path'>,
-): SocketConnectOpts => {
-  if (typeof path === 'string' && path.length > 0) {
-    return { path };
-  }
-  return { host, port };
-};

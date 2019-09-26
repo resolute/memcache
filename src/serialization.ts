@@ -1,10 +1,11 @@
-import { types } from 'util';
 import { SerializationOptions, Encoder, Decoder } from './types';
-import { isBufferLike } from './util';
+
+import util = require('util');
 
 import MemcacheRequest = require('./request');
 import MemcacheResponse = require('./response');
 import MemcacheError = require('./error');
+import MemcacheUtil = require('./util');
 
 export = ({
   stringFlag = 0b0,
@@ -14,7 +15,7 @@ export = ({
   serialize = JSON.stringify,
   deserialize = JSON.parse,
 }: SerializationOptions = {}): [Encoder, Decoder] => {
-  const encoder: Encoder = async (request: MemcacheRequest) => {
+  const encoder: Encoder = async <T>(request: MemcacheRequest<T>) => {
     // eslint-disable-next-line default-case
     switch (typeof request.value) {
       case 'undefined':
@@ -34,9 +35,9 @@ export = ({
         return encoder(request);
       case 'boolean':
       case 'object':
-        if (isBufferLike(request.value)) {
+        if (MemcacheUtil.isBufferLike(request.value)) {
           request.flags! |= binaryFlag;
-        } else if (types.isPromise(request.value)) {
+        } else if (util.types.isPromise(request.value)) {
           request.value = await (request.value as Promise<any>);
           // recursive when value is a promise
           return encoder(request);
@@ -84,7 +85,7 @@ export = ({
     // and performed if and only if no other flags matched.
     .sort(([a], [b]) => b - a);
 
-  const decoder: Decoder = async <V>(response: MemcacheResponse<Buffer>) => {
+  const decoder: Decoder = async <T>(response: MemcacheResponse<Buffer>) => {
     // eslint-disable-next-line no-restricted-syntax
     for (const [flag, decoder] of decoders) {
       if ((response.flags & flag) === flag) {
@@ -102,7 +103,7 @@ export = ({
         break;
       }
     }
-    return response as unknown as MemcacheResponse<V>;
+    return response as unknown as MemcacheResponse<T>;
   };
 
   return [encoder, decoder];

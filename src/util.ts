@@ -1,11 +1,12 @@
-import { types } from 'util';
 import { BufferLike } from './types';
+
+import util = require('util');
 
 export const isBufferLike = (value: any): value is BufferLike => {
   if (
     Buffer.isBuffer(value) ||
     ArrayBuffer.isView(value) ||
-    types.isAnyArrayBuffer(value)
+    util.types.isAnyArrayBuffer(value)
   ) {
     return true;
   }
@@ -25,7 +26,7 @@ export const toBuffer = (value: any) => {
   if (ArrayBuffer.isView(value)) {
     return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
   }
-  if (types.isAnyArrayBuffer(value)) {
+  if (util.types.isAnyArrayBuffer(value)) {
     return Buffer.from(value);
   }
   return undefined;

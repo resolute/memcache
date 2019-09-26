@@ -1,7 +1,6 @@
-import { extendIfDefined } from './util';
-
 import MemcacheRequest = require('./request');
 import MemcacheResponse = require('./response');
+import MemcacheUtil = require('./util');
 
 class MemcacheError extends Error {
   public status: number = MemcacheError.ERR_UNEXPECTED; // Unexpected error
@@ -31,7 +30,7 @@ class MemcacheError extends Error {
       this.type = 'client';
     }
 
-    extendIfDefined(this, { request, response, error });
+    MemcacheUtil.extendIfDefined(this, { request, response, error });
   }
 
   static ERR_KEY_NOT_FOUND = 0x0001; // 1

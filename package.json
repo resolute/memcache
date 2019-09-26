@@ -8,7 +8,7 @@
     "./"
   ],
   "scripts": {
-    "build": "npm run clean && npx tsc",
+    "build": "npm run clean && npx tsc && (npx eslint --fix *.js > /dev/null 2>&1; true)",
     "release": "npx np",
     "prepublishOnly": "npm test",
     "clean": "npx del-cli *.js *.js.map *.d.ts",

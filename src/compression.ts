@@ -1,6 +1,7 @@
-import { gzip, gunzip, constants } from 'zlib';
-import { promisify } from 'util';
 import { CompressionOptions, Encoder, Decoder } from './types';
+
+import zlib = require('zlib');
+import util = require('util');
 
 import MemcacheRequest = require('./request');
 import MemcacheResponse = require('./response');
@@ -9,12 +10,12 @@ import MemcacheError = require('./error');
 export = ({
   flag = 0b1,
   threshold = 1_048_576,
-  options = { level: constants.Z_BEST_SPEED },
-  compress = promisify(gzip),
-  decompress = promisify(gunzip),
+  options = { level: zlib.constants.Z_BEST_SPEED },
+  compress = util.promisify(zlib.gzip),
+  decompress = util.promisify(zlib.gunzip),
 }: CompressionOptions = {}): [Encoder, Decoder] => ([
   // encoder
-  async (request: MemcacheRequest) => {
+  async <T>(request: MemcacheRequest<T>) => {
     const buffer = request.valueAsBuffer;
     if (typeof buffer === 'undefined' || buffer.length <= threshold) {
       return request;
@@ -33,9 +34,9 @@ export = ({
     return request;
   },
   // decoder
-  async (response: MemcacheResponse<Buffer>) => {
+  async <T>(response: MemcacheResponse<Buffer>) => {
     if ((response.flags & flag) !== flag) {
-      return response;
+      return response as unknown as MemcacheResponse<T>;
     }
     try {
       response.value = await decompress(response.value, options);
@@ -47,6 +48,6 @@ export = ({
         error,
       });
     }
-    return response;
+    return response as unknown as MemcacheResponse<T>;
   },
 ])
