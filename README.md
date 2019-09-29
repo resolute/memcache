@@ -441,26 +441,31 @@ Get the value for the given key.
 
 **Throws**: If key does not exist.
 
-**See**: [`gat`](#gat)
-
 **Example**
 ```js
 const { ERR_KEY_NOT_FOUND } = require('@resolute/memcache/error');
 const { get } = memcache();
 try {
-    const { value, cas } = await get('foo');
-    return {
-        value, // value for “foo”
-        cas // “check-and-set” buffer that can be passed as option to almost every other command.
-    }
- } catch (error) {
-    if (error.status === ERR_KEY_NOT_FOUND) {
-        return ''; // not found → '' (empty string)
-    } else {
-        throw error; // re-throw any other error
-    }
- }
+  const { value, cas } = await get('foo');
+  return {
+    // value for “foo”
+    value,
+    // “check-and-set” buffer that can be
+    // passed as option to another command.
+    cas
+  }
+} catch (error) {
+  if (error.status === ERR_KEY_NOT_FOUND) {
+    // not found → '' (empty string)
+    return '';
+  } else {
+    // re-throw any other error
+    throw error;
+  }
+}
 ```
+
+**See**: [`gat`](#gat)
 
 ### `set`
 Set the value for the given key.
@@ -481,17 +486,19 @@ Set the value for the given key.
 **Note:** Unlike [add](#add), this method will overwrite any existing value
 associated with given key.
 
-**See**: [`add`](#add), [`replace`](#replace)
-
 **Example**
 ```js
 const { set } = memcache();
 try {
-    await set('foo', 'bar', 60); // expire in 1 minute
+  // expire in 1 minute
+  await set('foo', 'bar', 60);
 } catch (error) {
-    // any error means that the value was not stored
+  // any error means that the
+  // value was not stored
 }
 ```
+
+**See**: [`add`](#add), [`replace`](#replace)
 
 ### `add`
 Add a value for the given key.
@@ -511,19 +518,20 @@ Add a value for the given key.
 **Note:** Unlike `set`, this method will fail if a value is already assigned to
 the given key.
 
-**See**: [`set`](#set), [`replace`](#replace)
-
 **Example**
 ```js
+const { ERR_KEY_EXISTS } = require('@resolute/memcache/error');
 const { add } = memcache();
 try {
-    await add('foo', 'bar'); // works
-    await add('foo', 'baz'); // fails
+  await add('foo', 'bar'); // works
+  await add('foo', 'baz'); // fails
 } catch (error) {
-    // error.status === ERR_KEY_EXISTS (Key exists)
-    // 'bar' is still the value
+  // error.status === ERR_KEY_EXISTS
+  // 'bar' is still the value
 }
 ```
+
+**See**: [`set`](#set), [`replace`](#replace)
 
 ### `replace`
 Replace a value for the given key.
@@ -544,20 +552,21 @@ Replace a value for the given key.
 **Note:** Conversely to `add`, this method will fail the key has expired or does
 not exist.
 
-**See**: [`set`](#set), [`add`](#add)
-
 **Example**
 ```js
+const { ERR_KEY_NOT_FOUND } = require('@resolute/memcache/error');
 const { replace, set, del } = memcache();
 try {
-    await set('foo', 'bar');
-    await replace('foo', 'baz'); // works
-    await del('foo');
-    await replace('foo', 'bar'); // fails
+  await set('foo', 'bar');
+  await replace('foo', 'baz'); // works
+  await del('foo');
+  await replace('foo', 'bar'); // fails
 } catch (error) {
-    // error.status === error.ERR_KEY_NOT_FOUND
+  // error.status === ERR_KEY_NOT_FOUND
 }
 ```
+
+**See**: [`set`](#set), [`add`](#add)
 
 ### `del`
 ### `delete` (alias to `del`)
@@ -580,11 +589,11 @@ the deletion of a key. This common pattern is demonstrated in the example.
 const { ERR_KEY_NOT_FOUND } = require('@resolute/memcache/error');
 const { del } = memcache();
 try {
-    await del('foo');
+  await del('foo');
 } catch (error) {
-    if (error.status !== ERR_KEY_NOT_FOUND) {
-        throw error; // rethrow any other error
-    }
+  if (error.status !== ERR_KEY_NOT_FOUND) {
+    throw error; // rethrow any other error
+  }
 }
 ```
 
@@ -611,14 +620,12 @@ Increment *numeric* value of given key.
 either type checking the `MemcacheResponse.value` during `get` or using `await
 incr(key, 0)` to retrieve the number. See [Incr/Decr](#incr-decr).
 
-**See**: [`decr`](#decr)
-
 **Example**
 ```js
 const { incr, del } = memcache();
 
 // example of unexpected `typeof response.value`:
-await del('foo').catch(); // ignore any error
+await del('foo').catch(()=>{}); // ignore any error
 await incr('foo', 1, { initial: 1 }); // but no flags set
 const { value } = await get('foo');
 typeof value === 'string'; // true
@@ -631,6 +638,8 @@ const { value } = await get('foo');
 typeof value === 'number'; // true
 value; // 1
 ```
+
+**See**: [`decr`](#decr)
 
 ### `decr`
 ### `decrement` (alias to `decr`)
@@ -653,16 +662,16 @@ Decrement *numeric* value of the given key.
 cause the counter to “wrap”). Instead the counter is set to `0`. Incrementing
 the counter may cause the counter to wrap.
 
-**See**: [`incr`](#incr)
-
 **Example**
 ```js
 const { decr, del } = memcache();
-await del('foo').catch(); // ignore any error
-await decr('foo', 1, { initial: 10 }); // response.value === 10
-await decr('foo', 1); // response.value === 9
-await decr('foo', 10); // response.value === 0 (not -1)
+await del('foo').catch(()=>{}); // ignore any error
+await decr('foo', 1, { initial: 10 }); // .value === 10
+await decr('foo', 1); // .value === 9
+await decr('foo', 10); // .value === 0 (not -1)
 ```
+
+**See**: [`incr`](#incr)
 
 ### `append`
 Append the specified value to the given key.
@@ -677,8 +686,6 @@ Append the specified value to the given key.
 
 **Throws**: If `key` does not exist.
 
-**See**: [`prepend`](#prepend)
-
 **Example**
 ```js
 const { append, set, get } = memcache();
@@ -686,6 +693,8 @@ await set('foo', 'ab');
 await append('foo', 'c');
 await get('foo'); // 'abc'
 ```
+
+**See**: [`prepend`](#prepend)
 
 ### `prepend`
 Prepend the specified value to the given key.
@@ -700,8 +709,6 @@ Prepend the specified value to the given key.
 
 **Throws**: If `key` does not exist.
 
-**See**: append
-
 **Example**
 ```js
 const { prepend, set, get } = memcache();
@@ -710,8 +717,10 @@ await prepend('foo', 'a');
 await get('foo'); // 'abc'
 ```
 
+**See**: [`append`](#append)
+
 ### `touch`
-Touch is used to set a new expiration time for an existing item.
+Set a new expiration time for an existing item.
 
 | Param                         | Type                 |
 | ----------------------------- | -------------------- |
@@ -722,13 +731,13 @@ Touch is used to set a new expiration time for an existing item.
 
 **Throws**: `ERR_KEY_NOT_FOUND` if `key` does not exist.
 
-**See**: [`gat`](#gat)
-
 **Example**
 ```js
 const { touch } = memcache();
-await touch('foo', 3600);
+await touch('foo', 3600); // expire in 1hr
 ```
+
+**See**: [`gat`](#gat)
 
 ### `gat`
 Get And Touch is used to set a new expiration time for an existing item and
@@ -743,13 +752,13 @@ retrieve its value.
 
 **Throws**: If `key` does not exist.
 
-**See**: [`get`](#get), [`touch`](#touch)
-
 **Example**
 ```js
 const { gat } = memcache();
-await gat('foo', 3600);
+await gat('foo', 3600); // expire in 1hr
 ```
+
+**See**: [`get`](#get), [`touch`](#touch)
 
 ### `flush`
 Flush the items in the cache now or some time in the future as specified by the

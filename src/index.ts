@@ -12,16 +12,9 @@ import MemcacheCompression = require('./compression');
 import MemcacheSerialization = require('./serialization');
 
 /**
- * Memcache Client
- *
- * TODO: add JSDoc to each method
- *
+ * Create a Memcache client.
  */
 const memcache = (options: MemcacheOptions = {}) => {
-  /**
-     * Get the value for the given key.
-     * @param key
-     */
   const get = async <T>(key: BufferLike) =>
     funnel(new MemcacheRequest<MemcacheResponse<T>>({
       opcode: 0x00,
@@ -148,6 +141,15 @@ const memcache = (options: MemcacheOptions = {}) => {
       ...decoders,
     ]);
 
+  const flush = async (ttl?: Ttl) =>
+    funnel(new MemcacheRequest<MemcacheResponse<void>>({
+      opcode: 0x08,
+      // If unspecified, users expect the TTL to be immediate for `flush`.
+      ttl: sanitizeTtl(0)(ttl),
+    })).through([
+      send,
+    ]);
+
   const version = async () =>
     funnel(new MemcacheRequest<MemcacheResponse<Buffer>>({
       opcode: 0x0b,
@@ -167,15 +169,6 @@ const memcache = (options: MemcacheOptions = {}) => {
       carry[key.toString()] = value.toString();
       return carry;
     }, {} as { [property: string]: string }));
-
-  const flush = async (ttl?: Ttl) =>
-    funnel(new MemcacheRequest<MemcacheResponse<void>>({
-      opcode: 0x08,
-      // If unspecified, users expect the TTL to be immediate for `flush`.
-      ttl: sanitizeTtl(0)(ttl),
-    })).through([
-      send,
-    ]);
 
   // Memcache Client Context
 
@@ -231,20 +224,295 @@ const memcache = (options: MemcacheOptions = {}) => {
   };
 
   const ctx = {
+    /**
+     * Get the value for the given key.
+     *
+     * **Returns**: Promise<MemcacheResponse<T>>
+     *
+     * **Throws**: If key does not exist.
+     *
+     * **Example**
+     * ```js
+     * const { ERR_KEY_NOT_FOUND } = require('@resolute/memcache/error');
+     * const { get } = memcache();
+     * try {
+     *   const { value, cas } = await get('foo');
+     *   return {
+     *     // value for “foo”
+     *     value,
+     *     // “check-and-set” buffer that can be
+     *     // passed as option to another command.
+     *     cas
+     *   }
+     * } catch (error) {
+     *   if (error.status === ERR_KEY_NOT_FOUND) {
+     *     // not found → '' (empty string)
+     *     return '';
+     *   } else {
+     *     // re-throw any other error
+     *     throw error;
+     *   }
+     * }
+     * ```
+     */
     get,
+    /**
+     * Set the value for the given key.
+     *
+     * **Returns**: Promise<MemcacheResponse<void>>
+     *
+     * **Throws**: If unable to store value for any reason.
+     *
+     * **Note:** Unlike [add](#add), this method will overwrite any existing
+     * value associated with given key.
+     *
+     * **Example**
+     * ```js
+     * const { set } = memcache();
+     * try {
+     *   // expire in 1 minute
+     *   await set('foo', 'bar', 60);
+     * } catch (error) {
+     *   // any error means that the
+     *   // value was not stored
+     * }
+     * ```
+     */
     set,
+    /**
+     * Add a value for the given key.
+     *
+     * **Returns**: Promise<MemcacheResponse<void>>
+     *
+     * **Throws**: If `key` exists.
+     *
+     * **Note:** Unlike `set`, this method will fail if a value is already
+     * assigned to the given key.
+     *
+     * **Example**
+     * ```js
+     * const { ERR_KEY_EXISTS } = require('@resolute/memcache/error');
+     * const { add } = memcache();
+     * try {
+     *   await add('foo', 'bar'); // works
+     *   await add('foo', 'baz'); // fails
+     * } catch (error) {
+     *   // error.status === ERR_KEY_EXISTS
+     *   // 'bar' is still the value
+     * }
+     * ```
+     */
     add,
+    /**
+     * Replace a value for the given key.
+     *
+     * **Returns**: Promise<MemcacheResponse<void>>
+     *
+     * **Throws**: If `key` does *not* exist.
+     *
+     * **Note:** Conversely to `add`, this method will fail the key has expired
+     * or does not exist.
+     *
+     * **Example**
+     * ```js
+     * const { ERR_KEY_NOT_FOUND } = require('@resolute/memcache/error');
+     * const { replace, set, del } = memcache();
+     * try {
+     *   await set('foo', 'bar');
+     *   await replace('foo', 'baz'); // works
+     *   await del('foo');
+     *   await replace('foo', 'bar'); // fails
+     * } catch (error) {
+     *   // error.status === ERR_KEY_NOT_FOUND
+     * }
+     * ```
+     */
     replace,
+    /**
+     * Delete the given key.
+     *
+     * **Returns**: Promise<MemcacheResponse<void>>
+     *
+     * **Throws**: If `key` does *not* exist.
+     *
+     * **Note:** `del` throws an error if the key does not exist _as well as_ for many
+     * other issues. However, you might consider that a “key not found” error satisfies
+     * the deletion of a key. This common pattern is demonstrated in the example.
+     *
+     * **Example**
+     * ```js
+     * const { ERR_KEY_NOT_FOUND } = require('@resolute/memcache/error');
+     * const { del } = memcache();
+     * try {
+     *   await del('foo');
+     * } catch (error) {
+     *   if (error.status !== ERR_KEY_NOT_FOUND) {
+     *     throw error; // rethrow any other error
+     *   }
+     * }
+     * ```
+     */
     del,
+    /**
+     * Increment *numeric* value of given key.
+     *
+     * **Returns**: Promise<MemcacheResponse<number>>
+     *
+     * **Throws**: If `key` contains non-numeric value.
+     *
+     * **Note:** If the `key` is does not exist, the key will be “set” with the
+     * `initial` value (default: 0). However, _no_ `flags` will be set and a
+     * subsequent `get` will return a `string` or `Buffer` instead of a
+     * `number`. Use caution by either type checking the
+     * `MemcacheResponse.value` during `get` or using `await incr(key, 0)` to
+     * retrieve the number. See [Incr/Decr](#incr-decr).
+     *
+     * **Example**
+     * ```js
+     * const { incr, del } = memcache();
+     *
+     * // example of unexpected `typeof response.value`:
+     * await del('foo').catch(()=>{}); // ignore any error
+     * await incr('foo', 1, { initial: 1 }); // but no flags set
+     * const { value } = await get('foo');
+     * typeof value === 'string'; // true
+     * value; // '1'
+     *
+     * // this time, it would be a numeric response:
+     * await set('foo', 0);
+     * await incr('foo', 1);
+     * const { value } = await get('foo');
+     * typeof value === 'number'; // true
+     * value; // 1
+     * ```
+     */
     incr,
+    /**
+     * Decrement *numeric* value of the given key.
+     *
+     * **Returns**: Promise<MemcacheResponse<number>>
+     *
+     * **Throws**: If `key` contains non-numeric value.
+     *
+     * **Note:** Decrementing a counter will never result in a “negative value”
+     * (or cause the counter to “wrap”). Instead the counter is set to `0`.
+     * Incrementing the counter may cause the counter to wrap.
+     *
+     * **Example**
+     * ```js
+     * const { decr, del } = memcache();
+     * await del('foo').catch(()=>{}); // ignore any error
+     * await decr('foo', 1, { initial: 10 }); // .value === 10
+     * await decr('foo', 1); // .value === 9
+     * await decr('foo', 10); // .value === 0 (not -1)
+     * ```
+     */
     decr,
+    /**
+     * Append the specified value to the given key.
+     *
+     * **Returns**: Promise<MemcacheResponse<void>>
+     *
+     * **Throws**: If `key` does not exist.
+     *
+     * **Example**
+     * ```js
+     * const { append, set, get } = memcache();
+     * await set('foo', 'ab');
+     * await append('foo', 'c');
+     * await get('foo'); // 'abc'
+     * ```
+     */
     append,
+    /**
+     * Prepend the specified value to the given key.
+     *
+     * **Returns**: Promise<MemcacheResponse<void>>
+     *
+     * **Throws**: If `key` does not exist.
+     *
+     * **Example**
+     * ```js
+     * const { prepend, set, get } = memcache();
+     * await set('foo', 'bc');
+     * await prepend('foo', 'a');
+     * await get('foo'); // 'abc'
+     * ```
+     */
     prepend,
+    /**
+     * Set a new expiration time for an existing item.
+     *
+     * **Returns**: Promise<MemcacheResponse<void>>
+     *
+     * **Throws**: `ERR_KEY_NOT_FOUND` if `key` does not exist.
+     *
+     * **Example**
+     * ```js
+     * const { touch } = memcache();
+     * await touch('foo', 3600); // expire in 1hr
+     * ```
+     */
     touch,
+    /**
+     * Get And Touch is used to set a new expiration time for an existing item
+     * and retrieve its value.
+     *
+     * **Returns**: Promise<MemcacheResponse<T>>
+     *
+     * **Throws**: If `key` does not exist.
+     *
+     * **Example**
+     * ```js
+     * const { gat } = memcache();
+     * await gat('foo', 3600); // expire in 1hr
+     * ```
+     */
     gat,
-    version,
-    stat,
+    /**
+     * Flush the items in the cache now or some time in the future as specified
+     * by the optional `ttl` parameter.
+     *
+     * **Returns**: Promise<MemcacheResponse<void>>
+     *
+     * **Note**: If `ttl` is unspecified, then it will default to `0`—*not* the
+     * configured default `ttl`.
+     *
+     * **Example**
+     * ```js
+     * const { flush } = memcache();
+     * await flush(); // delete all keys immediately
+     * ```
+     */
     flush,
+    /**
+     * Version string in the body with the following format: “x.y.z”
+     *
+     * **Returns**: Promise<MemcacheResponse<string>>
+     *
+     * **Example**
+     * ```js
+     * const { version } = memcache();
+     * await version(); // '1.5.14'
+     * ```
+     */
+    version,
+    /**
+     * Statistics. Without a key specified the server will respond with a
+     * “default” set of statistics information.
+     *
+     * **Returns**: Promise<MemcacheResponse<{Object.<string, string>}>
+     *
+     * **Note**: supported `key` options: `'slabs'`, `'settings'`, `'sizes'`,
+     * but others may work depending on your server.
+     *
+     * **Example**
+     * ```js
+     * const { stat } = memcache();
+     * await stat('slabs');
+     * ```
+     */
+    stat,
     delete: del,
     increment: incr,
     decrement: decr,
