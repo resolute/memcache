@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import { SocketConnectOpts } from 'net';
 import { MemcacheOptions } from './types';
 
@@ -32,7 +33,7 @@ class Connection extends net.Socket {
   public password?: string;
 
   // protected state
-  protected queue: MemcacheRequest<any>[] = [];
+  protected queue: [MemcacheRequest, (error?: MemcacheError, response?: MemcacheResponse<any> | MemcacheResponse<any>[]) => void, NodeJS.Timer | undefined][] = [];
   protected killed: MemcacheError | false = false;
 
   // private state
@@ -158,7 +159,7 @@ class Connection extends net.Socket {
       this.username &&
       this.password && (
         this.queue.length === 0 ||
-        this.queue[0].buffer.readUInt8(1) !== 0x21 // sasl
+        this.queue[0][0].buffer.readUInt8(1) !== 0x21 // sasl
       )
     ) {
       debug('sasl frontload on send queue');
@@ -166,12 +167,15 @@ class Connection extends net.Socket {
       // depending on this command explicitly. Instead, user commands will
       // timeout independently and this SASL auth command will also never
       // keep the Node process running by itself.
-      const request = new MemcacheRequest<MemcacheResponse<void>>({
+      const request = new MemcacheRequest({
         opcode: 0x21,
         key: Buffer.from('PLAIN'),
         value: Buffer.from(`\x00${this.username}\x00${this.password}`),
       });
-      request.promise.catch((error) => {
+      const callback = (error?: MemcacheError) => {
+        if (!error) {
+          return;
+        }
         // It is possible that the user supplied a username/password, but the
         // server is _not_ compiled with SASL support. In this case, we 1) log a
         // warning, 2) zero out the username and password, 3) allow future
@@ -184,8 +188,8 @@ class Connection extends net.Socket {
         } else {
           this.kill(error);
         }
-      });
-      this.queue.unshift(request);
+      };
+      this.queue.unshift([request, callback, undefined]);
     }
 
     return super.connect(this.socketConnectOptions);
@@ -202,34 +206,39 @@ class Connection extends net.Socket {
     ) {
       return;
     }
-    const request = this.queue[this.sendPointer];
+    const [request] = this.queue[this.sendPointer];
     this.writeBufferAvailable = this.write(request.buffer);
     this.sendPointer += 1;
     this.drain();
   }
 
-  public send<T>(request: MemcacheRequest<T>) {
+  public send<T>(request: MemcacheRequest, callback: (error?: MemcacheError, response?: MemcacheResponse<T> | MemcacheResponse<T>[]) => void) {
     debug("send()\nthis.listenerCount('connect')=%s\nthis.queue.length = %s + 1\nrequest: %s",
       this.listenerCount('connect').toLocaleString(),
       this.queue.length.toLocaleString(),
       request);
     if (this.killed !== false) {
-      request.reject({ ...this.killed, request });
-      return request.promise;
+      callback({ ...this.killed, request });
+      return;
     }
     if (this.queue.length >= this.queueSize) {
-      request.reject(new MemcacheError({
+      callback(new MemcacheError({
         message: `queueSize ${this.queueSize.toLocaleString()} exceeded`,
         status: MemcacheError.ERR_CONNECTION,
         request,
       }));
-      return request.promise;
+      return;
     }
-    request.start(this.commandTimeout);
-    this.queue.push(request);
+    const timer = setTimeout(() => {
+      callback(new MemcacheError({
+        message: `commandTimeout (${this.commandTimeout.toLocaleString()} ms) exceeded.`,
+        status: MemcacheError.ERR_CONNECTION,
+        request,
+      }));
+    }, this.commandTimeout);
+    this.queue.push([request, callback, timer]);
     this.ref();
     this.drain();
-    return request.promise;
   }
 
   protected receive(newBuffer: Buffer) {
@@ -280,7 +289,7 @@ class Connection extends net.Socket {
       this.queue.length.toLocaleString(),
       this.sendPointer.toLocaleString(),
       firstResponse && firstResponse.totalBodyLength.toLocaleString());
-    const request = this.queue.shift();
+    const responder = this.queue.shift();
     // adjust the sendPointer to reflect the adjusted this.queue size
     this.sendPointer -= 1;
     // Once this.queue is empty, this socket will _not_ keep the node process
@@ -288,7 +297,7 @@ class Connection extends net.Socket {
     // === 0 and the connection is actually active.
     this.unref();
     /* istanbul ignore next */
-    if (request === undefined) {
+    if (typeof responder === 'undefined') {
       // If you encounter this error, please open an issue in GitHub. This
       // should never occur, but I guess it is technically possible. The only
       // other solution I can think of is to leverage the opaque field of the
@@ -309,13 +318,19 @@ class Connection extends net.Socket {
       /* istanbul ignore next */ console.error(`response.opcode: ${firstResponse.opcode}`);
       // eslint-disable-next-line no-console
       /* istanbul ignore next */ console.error(`response.status: ${firstResponse.status}`);
+      // eslint-disable-next-line no-console
+      /* istanbul ignore next */ console.error(`response.value: ${firstResponse.value}`);
       /* istanbul ignore next */
-      throw error;
+      return;
+    }
+    const [request, callback, timer] = responder;
+    if (timer) {
+      clearTimeout(timer);
     }
     if (firstResponse && firstResponse.status === 0) {
-      request.resolve(response);
+      callback(undefined, response);
     } else {
-      request.reject(new MemcacheError({ request, response: firstResponse }));
+      callback(new MemcacheError({ request, response: firstResponse }));
     }
   }
 
@@ -348,12 +363,12 @@ class Connection extends net.Socket {
       status: MemcacheError.ERR_CONNECTION,
     });
     // eslint-disable-next-line no-restricted-syntax
-    for (const request of this.queue) {
-      request.reject(this.killed);
+    for (const [request, callback] of this.queue) {
+      callback({ ...this.killed, request });
     }
-    this.queue = [];
     this.destroy(this.killed);
     this.emit('kill', this.killed);
+    process.nextTick(() => { this.queue = []; });
   }
 
   public get socketConnectOptions(): SocketConnectOpts {

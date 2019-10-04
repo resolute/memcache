@@ -52,7 +52,8 @@ class MemcacheResponse<T = unknown> {
     return this.keySet ? this.keyData : this.rawKey;
   }
   public set key(data) {
-    this.keyData = data; this.keySet = true;
+    this.keyData = data;
+    this.keySet = true;
   }
   public get rawKey() {
     return this.buffer.slice(24 + this.extrasLength,
@@ -62,7 +63,8 @@ class MemcacheResponse<T = unknown> {
     return this.valueSet ? this.valueData : this.rawValue;
   }
   public set value(data) {
-    this.valueData = data; this.valueSet = true;
+    this.valueData = data;
+    this.valueSet = true;
   }
   public get rawValue() {
     return this.buffer.slice(24 + this.extrasLength + this.keyLength,

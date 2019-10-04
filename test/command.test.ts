@@ -26,7 +26,7 @@ const {
 
 test.concurrent('ttl', async () => {
   const key = randomString(7);
-  let response: MemcacheResponse<any>;
+  let response: MemcacheResponse;
   response = await set(key, 'bar', new Date(new Date().valueOf() + 2000));
   response = await get<string>(key);
   assert.strictEqual(response.value, 'bar');
@@ -81,9 +81,7 @@ test.concurrent('`amount` invalid',
     { status: ERR_INVALID }));
 
 test.concurrent('bogus ttl → `defaultTtl`',
-  async () =>
-    // @ts-ignore
-    set(key, value, Infinity));
+  async () => set(key, value, Infinity));
 
 
 test.concurrent('date objects parsed', async () => {
@@ -110,7 +108,7 @@ test.concurrent('stat("sizes")', async () => stat('sizes'));
 
 test.concurrent('response object', async () => {
   const key = randomString(7);
-  let response: MemcacheResponse<any>;
+  let response: MemcacheResponse;
   response = await set(key, 'bar');
   assert.strictEqual(response.flags, 0);
   response = await get(key);
@@ -131,7 +129,7 @@ test.concurrent('touch/gat', async () => {
 
 test.concurrent('incr/decr', async () => {
   const key = randomString(7);
-  let response: MemcacheResponse<any>;
+  let response: MemcacheResponse;
   // When using `incr`/`decr` with implicit `initial: 0`
   response = await incr(key, 1);
   // `incr` always resolves to response.value as number
@@ -147,7 +145,7 @@ test.concurrent('incr/decr', async () => {
 
 test.concurrent('incr/decr alt', async () => {
   const key = randomString(7);
-  let response: MemcacheResponse<any>;
+  let response: MemcacheResponse;
   // If you `set` first, then flag for JSON will be set and since value is a
   // number, `incr`/`decr` will not alter these flags.
   response = await set(key, 1);
@@ -163,7 +161,7 @@ test.concurrent('incr/decr alt', async () => {
 
 test.concurrent('append/prepend', async () => {
   const key = randomString(7);
-  let response: MemcacheResponse<any>;
+  let response: MemcacheResponse;
   response = await set(key, 'b', { ttl: 10 });
   response = await prepend(key, 'a');
   response = await append(key, 'c', response.cas);
@@ -206,4 +204,24 @@ test.concurrent('invalid `cas` is ignored', async () => {
   await set(key, value, { cas: Buffer.from('derp') });
   const response = await get<string>(key);
   assert.strictEqual(response.value, value);
+});
+
+// Callback style does not work with test.concurrent()
+test('callback style set', (done) => {
+  expect.assertions(2);
+  set(randomString(7), 'callback style set', (error, response) => {
+    expect(error).toBeUndefined();
+    expect(response).toHaveProperty('status', 0);
+    done();
+  });
+});
+
+// Callback style does not work with test.concurrent()
+test('callback style incr', (done) => {
+  expect.assertions(2);
+  incr(randomString(7), 1, { initial: 1 }, (error, response) => {
+    expect(error).toBeUndefined();
+    expect(response).toHaveProperty('value', 1);
+    done();
+  });
 });

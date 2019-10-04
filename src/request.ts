@@ -1,72 +1,19 @@
-import {
-  MemcacheRequestOptions, BufferLike, Ttl, Cas,
-} from './types';
+import { MemcacheRequestOptions } from './types';
 
-import MemcacheResponse = require('./response');
-import MemcacheError = require('./error');
 import MemcacheUtil = require('./util');
 
-class MemcacheRequest<T = MemcacheResponse> {
-  public opcode!: number;
-  public key?: BufferLike;
-  public value?: BufferLike;
-  public amount?: number;
-  public ttl?: Ttl;
-  public cas?: Cas;
-  public initial?: number;
-  public flags?: number;
-  public promise!: Promise<T>;
-  public resolve!: (value: T) => void;
-  public reject!: (reason: MemcacheError) => void;
-  public timeout?: number; // purely cosmetic
-  private timer?: NodeJS.Timer;
+class MemcacheRequest {
+  public opcode!: MemcacheRequestOptions['opcode'];
+  public key?: MemcacheRequestOptions['key'];
+  public value?: MemcacheRequestOptions['value'];
+  public amount?: MemcacheRequestOptions['amount'];
+  public ttl?: MemcacheRequestOptions['ttl'];
+  public cas?: MemcacheRequestOptions['cas'];
+  public initial?: MemcacheRequestOptions['initial'];
+  public flags?: MemcacheRequestOptions['flags'];
 
-  constructor(options: MemcacheRequestOptions) {
+  constructor(options: Required<Pick<MemcacheRequestOptions, 'opcode'>> & Partial<MemcacheRequestOptions>) {
     MemcacheUtil.extendIfDefined(this, options);
-
-    const promise = new Promise((resolve, reject) => {
-      Object.defineProperties(this, {
-        resolve: {
-          value: (value: T) => {
-            this.stop();
-            resolve.call(undefined, value);
-          },
-        },
-        reject: {
-          value: (reason: MemcacheError) => {
-            this.stop();
-            reject.call(undefined, reason);
-          },
-        },
-      });
-    });
-
-    Object.defineProperties(this, {
-      promise: { value: promise },
-    });
-  }
-
-  public start(msecs: number) {
-    this.timeout = msecs; // purely cosmetic
-    // The command timer is always ref()’d and prevents the Node process
-    // from terminating once a command is issued until it is received.
-    Object.defineProperty(this, 'timer', {
-      value: setTimeout(() => {
-        this.reject(new MemcacheError({
-          message: `commandTimeout (${msecs.toLocaleString()} ms) exceeded.`,
-          status: MemcacheError.ERR_CONNECTION,
-          request: this,
-        }));
-      }, msecs),
-    });
-    return this;
-  }
-
-  private stop() {
-    if (this.timer) {
-      clearTimeout(this.timer);
-    }
-    return this;
   }
 
   public get buffer() {

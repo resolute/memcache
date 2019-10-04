@@ -1,4 +1,7 @@
-import { SerializationOptions, Encoder, Decoder } from './types';
+/* eslint-disable max-len */
+import {
+  SerializationOptions, Encoder, Decoder, CommandCallback,
+} from './types';
 
 import util = require('util');
 
@@ -12,10 +15,14 @@ export = ({
   jsonFlag = 0b10,
   binaryFlag = 0b100,
   numberFlag = 0b1000,
-  serialize = JSON.stringify,
-  deserialize = JSON.parse,
+  // TODO since JSON.* methods have option 2nd and 3rd parameters, our
+  // util.callbackWrapper will introduce an Maximum Callstack Error. So, we use
+  // a wrapper beforehand, but maybe this whole callbackWrapper thing isn’t
+  // really going to work.
+  serialize = (value: any) => JSON.stringify(value),
+  deserialize = (string: string) => JSON.parse(string),
 }: SerializationOptions = {}): [Encoder, Decoder] => {
-  const encoder: Encoder = async <T>(request: MemcacheRequest<T>) => {
+  const encoder: Encoder = (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>) => {
     // eslint-disable-next-line default-case
     switch (typeof request.value) {
       case 'undefined':
@@ -32,31 +39,44 @@ export = ({
       case 'function':
         request.value = (request.value as Function)();
         // recursive when value is a function
-        return encoder(request);
+        encoder(request, callback);
+        return undefined;
       case 'boolean':
       case 'object':
         if (MemcacheUtil.isBufferLike(request.value)) {
           request.flags! |= binaryFlag;
         } else if (util.types.isPromise(request.value)) {
-          request.value = await (request.value as Promise<any>);
-          // recursive when value is a promise
-          return encoder(request);
+          (request.value as Promise<unknown>)
+            .then((value: any) => {
+              request.value = value;
+              // recursive when value is a promise
+              encoder(request, callback);
+            })
+            .catch((error: MemcacheError) => {
+              callback(error);
+            });
+          return undefined;
         } else {
           request.flags! |= jsonFlag;
-          try {
-            request.value = await serialize(request.value);
-          } catch (error) {
-            throw new MemcacheError({
-              message: error.message,
-              status: MemcacheError.ERR_SERIALIZATION,
-              request,
-              error,
-            });
-          }
+          MemcacheUtil.callbackWrapper(serialize)(request.value, (error?: MemcacheError, value?: any) => {
+            if (error) {
+              callback(new MemcacheError({
+                message: error.message,
+                status: MemcacheError.ERR_SERIALIZATION,
+                request,
+                error,
+              }));
+            } else {
+              request.value = value;
+              // recursive when using possibly user-defined serializer
+              encoder(request, callback);
+            }
+          });
         }
         break;
     }
-    return request;
+    callback(undefined, request);
+    return undefined;
   };
 
   const decoders = ([
@@ -85,25 +105,25 @@ export = ({
     // and performed if and only if no other flags matched.
     .sort(([a], [b]) => b - a);
 
-  const decoder: Decoder = async <T>(response: MemcacheResponse<Buffer>) => {
+  const decoder: Decoder = <T>(response: MemcacheResponse, callback: CommandCallback<MemcacheResponse<T>>) => {
     // eslint-disable-next-line no-restricted-syntax
     for (const [flag, decoder] of decoders) {
       if ((response.flags & flag) === flag) {
         try {
-          // eslint-disable-next-line no-await-in-loop
-          response.value = await decoder(response.value);
+          response.value = decoder(response.value as Buffer);
         } catch (error) {
-          throw new MemcacheError({
+          callback(new MemcacheError({
             message: error.message,
             status: MemcacheError.ERR_SERIALIZATION,
             response,
             error,
-          });
+          }));
+          return;
         }
         break;
       }
     }
-    return response as unknown as MemcacheResponse<T>;
+    callback(undefined, response as unknown as MemcacheResponse<T>);
   };
 
   return [encoder, decoder];

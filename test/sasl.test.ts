@@ -27,13 +27,11 @@ test.concurrent('sasl:server-yes:client-yes', async () => memcache({
   port: portSasl,
   username,
   password,
-})
-  .set('sasl:server-yes:client-yes', 'works'));
+}).set('sasl:server-yes:client-yes', 'works'));
 
 test.concurrent('sasl:server-no:client-no', async () => memcache({
   port,
-})
-  .set('sasl:server-no:client-no', 'works'));
+}).set('sasl:server-no:client-no', 'works'));
 
 test.concurrent('sasl:server-yes:client-no', async () => assert.rejects(memcache({
   port: portSasl,
@@ -59,6 +57,7 @@ test.concurrent('sasl:server-no:client-yes', async () =>
       password,
     }).set('sasl:server-no:client-yes', 'works'),
   ]));
+
 test.concurrent('sasl:server-yes:client-wrong-pw', async () => assert.rejects(memcache({
   port: portSasl,
   username,

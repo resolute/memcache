@@ -5,8 +5,8 @@ import MemcacheUtil = require('./util');
 class MemcacheError extends Error {
   public status: number = MemcacheError.ERR_UNEXPECTED; // Unexpected error
   public type: 'client' | 'server' = 'server';
-  public request?: MemcacheRequest<any>;
-  public response?: MemcacheResponse<any>;
+  public request?: MemcacheRequest;
+  public response?: MemcacheResponse;
   public error?: Error;
 
   constructor({
@@ -14,8 +14,8 @@ class MemcacheError extends Error {
   }: {
     message?: string,
     status?: number,
-    request?: MemcacheRequest<any>,
-    response?: MemcacheResponse<any>,
+    request?: MemcacheRequest,
+    response?: MemcacheResponse,
     error?: Error
   }) {
     super(parseErrorMessage(message, response));

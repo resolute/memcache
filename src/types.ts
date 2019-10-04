@@ -1,53 +1,92 @@
+/* eslint-disable max-len */
 import { ZlibOptions } from 'zlib';
 import { SocketConnectOpts } from 'net';
 
 import MemcacheRequest = require('./request');
 import MemcacheResponse = require('./response');
-
-export type BufferLike = string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView;
-export type BufferAble = number | BufferLike;
-export type Ttl = number | Date;
-export type Cas = MemcacheResponse<unknown> | Buffer;
+import MemcacheError = require('./error');
 
 export interface Encoder {
-  <T>(request: MemcacheRequest<T>): Promise<MemcacheRequest<T>> | MemcacheRequest<T>;
+  (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>): void;
 }
 
 export interface Decoder {
-  <T>(response: MemcacheResponse<Buffer>): Promise<MemcacheResponse<T>> | MemcacheResponse<T>;
+  <T>(response: MemcacheResponse, callback: CommandCallback<MemcacheResponse<T>>): void;
 }
 
 export interface Send {
-  <T>(request: MemcacheRequest<T>): Promise<T>;
+  <T extends MemcacheResponse<T> | MemcacheResponse<T>[]>(request: MemcacheRequest, callback: CommandCallback<T>): void;
+}
+
+export interface Get {
+  <T>(key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView): Promise<MemcacheResponse<T>>;
+  <T>(key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, callback: CommandCallback<MemcacheResponse<T>>): void;
+}
+
+export interface Gat {
+  <T>(key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, ttl: number | Date): Promise<MemcacheResponse<T>>;
+  <T>(key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, ttl: number | Date, callback: CommandCallback<MemcacheResponse<T>>): void;
+}
+
+export interface Touch {
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, ttl: number | Date): Promise<MemcacheResponse<void>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, ttl: number | Date, callback: CommandCallback<MemcacheResponse<void>>): void;
+}
+
+export interface Del {
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView): Promise<MemcacheResponse<void>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, callback: CommandCallback<MemcacheResponse<void>>): void;
+}
+
+export interface Flush {
+  (ttl?: number | Date): Promise<MemcacheResponse<void>>;
+  (callback: CommandCallback<MemcacheResponse<void>>): void;
+  (ttl: number | Date, callback: CommandCallback<MemcacheResponse<void>>): void;
+}
+
+export interface Version {
+  (callback: CommandCallback<string>): void;
+  (): Promise<string>;
+}
+
+export interface Stat {
+  (key?: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView): Promise<{ [property: string]: string }>;
+  (callback: CommandCallback<{ [property: string]: string }>): void;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, callback: CommandCallback<{ [property: string]: string }>): void;
+}
+
+export interface AppendPrepend {
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, cas?: Buffer | MemcacheResponse): Promise<MemcacheResponse<void>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, callback: CommandCallback<MemcacheResponse<void>>): void;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, cas: Buffer | MemcacheResponse, callback: CommandCallback<MemcacheResponse<void>>): void;
 }
 
 export interface SetReplace {
-  (key: BufferLike, value: any, ttl?: number | Date): Promise<MemcacheResponse<void>>;
-  (key: BufferLike, value: any, options?: Omit<CommandOptions, 'initial'>): Promise<MemcacheResponse<void>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, ttl?: number | Date): Promise<MemcacheResponse<void>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, options?: { ttl?: number | Date, flags?: number, cas?: Buffer | MemcacheResponse }): Promise<MemcacheResponse<void>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, callback: CommandCallback<MemcacheResponse<void>>): void;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, ttl: number | Date, callback: CommandCallback<MemcacheResponse<void>>): void;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, options: { ttl?: number | Date, flags?: number, cas?: Buffer | MemcacheResponse }, callback: CommandCallback<MemcacheResponse<void>>): void;
 }
 
 export interface Add {
-  (key: BufferLike, value: any, ttl?: number | Date): Promise<MemcacheResponse<void>>;
-  (key: BufferLike, value: any, options?: Omit<CommandOptions, 'initial' | 'cas'>): Promise<MemcacheResponse<void>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, ttl?: number | Date): Promise<MemcacheResponse<void>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, options?: { ttl?: number | Date, flags?: number }): Promise<MemcacheResponse<void>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, callback: CommandCallback<MemcacheResponse<void>>): void;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, ttl: number | Date, callback: CommandCallback<MemcacheResponse<void>>): void;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, value: any, options: { ttl?: number | Date, flags?: number }, callback: CommandCallback<MemcacheResponse<void>>): void;
 }
 
 export interface IncrDecr {
-  (key: BufferLike, value: number, ttl?: number | Date): Promise<MemcacheResponse<number>>;
-  (key: BufferLike, value: number, options?: Omit<CommandOptions, 'flags'>): Promise<MemcacheResponse<number>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, amount: number, ttl?: number | Date): Promise<MemcacheResponse<number>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, amount: number, options?: { ttl?: number | Date, initial?: number, cas?: Buffer | MemcacheResponse }): Promise<MemcacheResponse<number>>;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, amount: number, callback: CommandCallback<MemcacheResponse<number>>): void;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, amount: number, ttl: number | Date, callback: CommandCallback<MemcacheResponse<number>>): void;
+  (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, amount: number, options: { ttl?: number | Date, initial?: number, cas?: Buffer | MemcacheResponse }, callback: CommandCallback<MemcacheResponse<number>>): void;
 }
 
-export interface CommandOptions {
-  ttl?: Ttl;
-  cas?: Cas;
-  flags?: number;
-  initial?: number;
-}
-
-export interface MemcacheRequestOptions extends CommandOptions {
-  opcode: number;
-  key?: BufferLike;
-  value?: BufferLike;
-  amount?: number;
+export interface CommandCallback<T> {
+  (error?: MemcacheError, response?: T): any;
 }
 
 export interface MemcacheOptions {
@@ -75,8 +114,19 @@ export interface CompressionOptions {
   flag?: number;
   options?: ZlibOptions;
   threshold?: number;
-  compress?: (buf: Buffer, options?: any) => Promise<Buffer>;
-  decompress?: (buf: Buffer, options?: any) => Promise<Buffer>;
+  compress?: (buf: Buffer, options?: any, callback?: (error: Error | null, result: Buffer) => void) => void;
+  decompress?: (buf: Buffer, options?: any, callback?: (error: Error | null, result: Buffer) => void) => void;
+}
+
+export interface MemcacheRequestOptions {
+  opcode: number;
+  key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView;
+  value: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView;
+  amount: number;
+  ttl: number | Date;
+  cas: Buffer | MemcacheResponse;
+  flags: number;
+  initial: number;
 }
 
 export interface SerializationOptions {
@@ -84,8 +134,8 @@ export interface SerializationOptions {
   jsonFlag?: number;
   binaryFlag?: number;
   numberFlag?: number;
-  serialize?: (value: any, options?: any) => Promise<Buffer | string> | Buffer | string;
-  deserialize?: (value: string, options?: any) => Promise<any> | any;
+  serialize?: (value: any, options?: any) => Buffer | string;
+  deserialize?: (value: string, options?: any) => any;
 }
 
 export interface SocketConnectOpts { }

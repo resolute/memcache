@@ -164,6 +164,7 @@ test.concurrent('a serializer that always fails', async () => {
     serialize: async () => { throw new Error('I fail all the time!'); },
     deserialize: async () => { throw new Error('I also fail all the time!'); },
   };
+  // @ts-ignore
   const { set } = memcache({ port, serialization });
   assert.rejects(set(key, ['I will not make it…']), { status: ERR_SERIALIZATION });
 });

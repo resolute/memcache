@@ -1,8 +1,7 @@
-import { BufferLike } from './types';
-
 import util = require('util');
 
-export const isBufferLike = (value: any): value is BufferLike => {
+export const isBufferLike = (value: any):
+  value is Buffer | ArrayBuffer | SharedArrayBuffer | DataView => {
   if (
     Buffer.isBuffer(value) ||
     ArrayBuffer.isView(value) ||
@@ -38,5 +37,34 @@ export const extendIfDefined = (ctx: { [key: string]: any }, options: object) =>
     if (typeof value !== 'undefined') {
       ctx[key] = value;
     }
+  }
+};
+
+export const callbackWrapper = (fn: Function) => (...args: any[]) => {
+  let returnValue: any;
+  let syncError: Error | undefined;
+  try {
+    returnValue = fn(...args);
+  } catch (error) {
+    syncError = error;
+  }
+  const callback = args[args.length - 1];
+  if (typeof callback !== 'function') {
+    return;
+  }
+  if (typeof syncError !== 'undefined') {
+    // TODO make sure syncError is not falsey to avoid anti-pattern in Node
+    // callback style:
+    callback(syncError);
+    return;
+  }
+  if (util.types.isPromise(returnValue)) {
+    returnValue
+      .then((value: any) => { callback(undefined, value); })
+      .catch((error: any) => { callback(error); });
+    return;
+  }
+  if (typeof returnValue !== 'undefined') {
+    callback(undefined, returnValue);
   }
 };
