@@ -14,220 +14,231 @@ import MemcacheConnection = require('./connection');
 import MemcacheCompression = require('./compression');
 import MemcacheSerialization = require('./serialization');
 
+
 /**
  * Create a Memcache client.
  */
 const memcache = (options: MemcacheOptions = {}) => {
-  // @ts-ignore
-  const get: Get = <T>(key: any, callback?: any) =>
-    flow(new MemcacheRequest({
+  const get: Get = <T>(key: any, cb?: any): any => {
+    const { callback, returnValue } = normalizeCallback(cb);
+    const request = new MemcacheRequest({
       opcode: 0x00,
       key,
-    }))([
+    });
+    flow(request)([
       checkKey,
-      // @ts-ignore
       send,
       ...decoders,
     ])<MemcacheResponse<T>>(callback);
+    return returnValue;
+  };
 
-  // @ts-ignore
-  const set: SetReplace = (key: any, value: any, ...args: any[]) => {
-    const { callback, ...options } = normalizeOptions(defaultTtl)(...args);
+  const set: SetReplace = (key: any, value: any, ...args: any[]): any => {
+    const { callback, returnValue, ...options } = normalizeOptions(defaultTtl)(...args);
     const request = new MemcacheRequest({
       opcode: 0x01,
       key,
       value,
       ...options,
     });
-    // @ts-ignore
-    return flow(request)([
+    flow(request)([
       ...encoders,
       checkKey,
       checkValue,
       send,
     ])<MemcacheResponse<void>>(callback);
+    return returnValue;
   };
 
-  // @ts-ignore
-  const add: Add = (key: any, value: any, ...args: any[]) => {
-    const { callback, ...options } = normalizeOptions(defaultTtl)(...args);
+  const add: Add = (key: any, value: any, ...args: any[]): any => {
+    const { callback, returnValue, ...options } = normalizeOptions(defaultTtl)(...args);
     const request = new MemcacheRequest({
       opcode: 0x02,
       key,
       value,
       ...options,
     });
-    // @ts-ignore
-    return flow(request)([
+    flow(request)([
       ...encoders,
       checkKey,
       checkValue,
       send,
     ])<MemcacheResponse<void>>(callback);
+    return returnValue;
   };
 
-  // @ts-ignore
-  const replace: SetReplace = (key: any, value: any, ...args: any[]) => {
-    const { callback, ...options } = normalizeOptions(defaultTtl)(...args);
+  const replace: SetReplace = (key: any, value: any, ...args: any[]): any => {
+    const { callback, returnValue, ...options } = normalizeOptions(defaultTtl)(...args);
     const request = new MemcacheRequest({
       opcode: 0x03,
       key,
       value,
       ...options,
     });
-    // @ts-ignore
-    return flow(request)([
+    flow(request)([
       ...encoders,
       checkKey,
       checkValue,
       send,
     ])<MemcacheResponse<void>>(callback);
+    return returnValue;
   };
 
-  // @ts-ignore
-  const del: Del = (key: any, callback?: any) =>
-    flow(new MemcacheRequest({
+  const del: Del = (key: any, cb?: any): any => {
+    const { callback, returnValue } = normalizeCallback(cb);
+    const request = new MemcacheRequest({
       opcode: 0x04,
       key,
-    }))([
+    });
+    flow(request)([
       checkKey,
-      // @ts-ignore
       send,
     ])<MemcacheResponse<void>>(callback);
+    return returnValue;
+  };
 
-  // @ts-ignore
-  const incr: IncrDecr = (key: any, amount: any, ...args: any[]) => {
-    const { callback, ...options } = normalizeOptions(defaultTtl)(...args);
+  const incr: IncrDecr = (key: any, amount: any, ...args: any[]): any => {
+    const { callback, returnValue, ...options } = normalizeOptions(defaultTtl)(...args);
     const request = new MemcacheRequest({
       opcode: 0x05,
       key,
       amount,
       ...options,
     });
-    return flow(request)([
+    flow(request)([
       checkKey,
       checkAmount,
-      // @ts-ignore
       send,
       decodeIncrDecrValue,
     ])<MemcacheResponse<number>>(callback);
+    return returnValue;
   };
 
-  // @ts-ignore
-  const decr: IncrDecr = (key: any, amount: any, ...args: any[]) => {
-    const { callback, ...options } = normalizeOptions(defaultTtl)(...args);
+  const decr: IncrDecr = (key: any, amount: any, ...args: any[]): any => {
+    const { callback, returnValue, ...options } = normalizeOptions(defaultTtl)(...args);
     const request = new MemcacheRequest({
       opcode: 0x06,
       key,
       amount,
       ...options,
     });
-    return flow(request)([
+    flow(request)([
       checkKey,
       checkAmount,
-      // @ts-ignore
       send,
       decodeIncrDecrValue,
     ])<MemcacheResponse<number>>(callback);
+    return returnValue;
   };
 
-  // @ts-ignore
-  const append: AppendPrepend = (key: any, value: any, ...args: any[]) => {
-    const { callback, cas } = normalizeAppendPrependOptions(...args);
+  const append: AppendPrepend = (key: any, value: any, ...args: any[]): any => {
+    const { callback, returnValue, cas } = normalizeAppendPrependOptions(...args);
     const request = new MemcacheRequest({
       opcode: 0x0e,
       key,
       value,
       cas,
     });
-    return flow(request)([
+    flow(request)([
       checkKey,
-      // @ts-ignore
+      checkValue,
       send,
     ])<MemcacheResponse<void>>(callback);
+    return returnValue;
   };
 
-  // @ts-ignore
-  const prepend: AppendPrepend = (key: any, value: any, ...args: any[]) => {
-    const { callback, cas } = normalizeAppendPrependOptions(...args);
+  const prepend: AppendPrepend = (key: any, value: any, ...args: any[]): any => {
+    const { callback, returnValue, cas } = normalizeAppendPrependOptions(...args);
     const request = new MemcacheRequest({
       opcode: 0x0f,
       key,
       value,
       cas,
     });
-    return flow(request)([
+    flow(request)([
       checkKey,
-      // @ts-ignore
+      checkValue,
       send,
     ])<MemcacheResponse<void>>(callback);
+    return returnValue;
   };
 
-  // @ts-ignore
-  const touch: Touch = (key: any, ttl: any, callback?: any) =>
-    flow(new MemcacheRequest({
+  const touch: Touch = (key: any, ...args: any[]): any => {
+    const { callback, returnValue, ttl } = normalizeOptions(defaultTtl)(...args);
+    const request = new MemcacheRequest({
       opcode: 0x1c,
       key,
-      ttl: sanitizeTtl(defaultTtl)(ttl),
-    }))([
+      ttl,
+    });
+    flow(request)([
       checkKey,
-      // @ts-ignore
       send,
     ])<MemcacheResponse<void>>(callback);
+    return returnValue;
+  };
 
-  // @ts-ignore
-  const gat: Gat = <T>(key: any, ttl: any, callback?: any) =>
-    flow(new MemcacheRequest({
+  const gat: Gat = <T>(key: any, ...args: any[]): any => {
+    const { callback, returnValue, ttl } = normalizeOptions(defaultTtl)(...args);
+    const request = new MemcacheRequest({
       opcode: 0x1d,
       key,
-      ttl: sanitizeTtl(defaultTtl)(ttl),
-    }))([
+      ttl,
+    });
+    flow(request)([
       checkKey,
-      // @ts-ignore
       send,
       ...decoders,
     ])<MemcacheResponse<T>>(callback);
+    return returnValue;
+  };
 
-  // @ts-ignore
-  const flush: Flush = (ttl?: any, callback?: any) =>
-    flow(new MemcacheRequest({
+  const flush: Flush = (...args: any[]): any => {
+    // If unspecified, users expect the TTL to be immediate for `flush`.
+    const { callback, returnValue, ttl } = normalizeOptions(0)(...args);
+    const request = new MemcacheRequest({
       opcode: 0x08,
-      // If unspecified, users expect the TTL to be immediate for `flush`.
-      ttl: sanitizeTtl(0)(ttl),
-    }))([
-      // @ts-ignore
+      ttl,
+    });
+    flow(request)([
       send,
     ])<MemcacheResponse<void>>(callback);
+    return returnValue;
+  };
 
-  const version: Version = (callback?: CommandCallback<string>) =>
-    flow(new MemcacheRequest({
+  const version: Version = (cb?: any): any => {
+    const { callback, returnValue } = normalizeCallback(cb);
+    const request = new MemcacheRequest({
       opcode: 0x0b,
-    }))([
-      // @ts-ignore
+    });
+    flow(request)([
       send,
       // @ts-ignore
-      (response: MemcacheResponse<Buffer>, callback: CommandCallback<string>) => {
-        callback(undefined, response.value.toString());
-      },
+      decodeVersion,
     ])<string>(callback);
+    return returnValue;
+  };
 
-  // @ts-ignore
-  const stat: Stat = (key?: any, callback?: any) =>
-    flow(new MemcacheRequest({
+  const stat: Stat = (...args: any[]): any => {
+    let key: MemcacheRequestOptions['key'] | undefined;
+    let cb: CommandCallback<{ [property: string]: string }> | undefined;
+    if (typeof args[0] === 'function') {
+      [cb] = args;
+    } else {
+      [key, cb] = args;
+    }
+    const { callback, returnValue } = normalizeCallback(cb);
+    const request = new MemcacheRequest({
       opcode: 0x10,
       key,
-      // @ts-ignore
-    }))([
-      ...(!key ? [] : [checkKey]),
+    });
+    // @ts-ignore
+    flow(request)([
+      ...(typeof key === 'undefined' ? [] : [checkKey]),
       send,
-      (responses: MemcacheResponse<Buffer>[], callback: CommandCallback<{ [property: string]: string }>) => {
-        callback(undefined, responses.reduce((carry, { key, value }) => {
-          // eslint-disable-next-line no-param-reassign
-          carry[key.toString()] = value.toString();
-          return carry;
-        }, {} as { [property: string]: string }));
-      },
+      decodeStat,
     ])<{ [property: string]: string }>(callback);
+    return returnValue;
+  };
 
   // Memcache Client Context
 
@@ -253,6 +264,7 @@ const memcache = (options: MemcacheOptions = {}) => {
         request,
       }));
     } else {
+      // @ts-ignore
       callback(undefined, request);
     }
   };
@@ -274,7 +286,7 @@ const memcache = (options: MemcacheOptions = {}) => {
     }
   };
 
-  const checkAmount: Encoder = (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>) => {
+  const checkAmount: Encoder = <T extends MemcacheRequest, U extends T>(request: T, callback: CommandCallback<U>) => {
     let n = request.amount;
     if (typeof n === 'string') {
       n = parseInt(n, 10);
@@ -286,6 +298,7 @@ const memcache = (options: MemcacheOptions = {}) => {
       }));
     } else {
       request.amount = n;
+      // @ts-ignore
       callback(undefined, request);
     }
   };
@@ -622,52 +635,61 @@ export = memcache;
 
 const normalizeOptions = (defaultTtl: number) => <T>(options?: number | Date | Partial<Pick<MemcacheRequestOptions, 'ttl' | 'flags' | 'initial' | 'cas'>> | CommandCallback<T>, callback?: CommandCallback<T>) => {
   if (typeof options === 'function') {
-    return { flags: 0, ttl: defaultTtl, callback: options };
+    return { flags: 0, ttl: defaultTtl, ...normalizeCallback(options) };
   }
   if (
     typeof options === 'undefined' ||
     typeof options === 'number' ||
     util.types.isDate(options)
   ) {
-    return { flags: 0, ttl: sanitizeTtl(defaultTtl)(options), callback };
+    return { flags: 0, ttl: sanitizeTtl(defaultTtl)(options), ...normalizeCallback(callback) };
   }
   return {
-    flags: 0, ...options, ttl: sanitizeTtl(defaultTtl)(options.ttl), callback,
+    flags: 0, ...options, ttl: sanitizeTtl(defaultTtl)(options.ttl), ...normalizeCallback(callback),
   };
 };
 
 const normalizeAppendPrependOptions = <T>(cas?: MemcacheRequestOptions['cas'], callback?: CommandCallback<T>) => {
   if (typeof cas === 'function') {
-    return { callback: cas };
+    return { cas: undefined, ...normalizeCallback(cas) };
   }
-  return { cas, callback };
+  return { cas, ...normalizeCallback(callback) };
 };
 
-const flow = (request: MemcacheRequest) => (stack: (Send | Encoder | Decoder)[]) => <T>(callback?: CommandCallback<T>) => {
-  let cursor = 0;
-  let voidOrPromise: Promise<T> | void;
-  if (typeof callback !== 'function') {
-    voidOrPromise = new Promise((resolve, reject) => {
-      // eslint-disable-next-line no-param-reassign
-      callback = (error, response) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(response);
-        }
-      };
-    });
+const normalizeCallback: {
+  <T>(callback?: CommandCallback<T>): { callback: CommandCallback<T>, returnValue: void };
+  <T>(): { callback: CommandCallback<T>, returnValue: Promise<T> };
+} = <T>(arg?: any): any => {
+  if (typeof arg !== 'undefined') {
+    return { callback: arg, returnValue: undefined };
   }
-  const recurse = (error?: MemcacheError, result?: any): void | Promise<T> => {
-    if (error || cursor >= stack.length) {
-      callback!(error, result);
+  let callback: CommandCallback<T>;
+  const returnValue: Promise<T> = new Promise((resolve, reject) => {
+    callback = (error?: MemcacheError, response?: T) => {
+      if (typeof error !== 'undefined') {
+        reject(error);
+      } else {
+        resolve(response);
+      }
+    };
+  });
+  return { callback: callback!, returnValue };
+};
+
+// const flow = (request: MemcacheRequest) => (stack: (<T extends MemcacheRequest | MemcacheResponse, U extends MemcacheRequest | MemcacheResponse>(payload: T, callback: CommandCallback<U>) => void)[]) => <Z>(callback: CommandCallback<Z>) => {
+const flow = (request: MemcacheRequest) => (stack: (Send | Encoder | Decoder)[]) => <T>(callback: CommandCallback<T>) => {
+  let cursor = 0;
+  const recurse = (error?: MemcacheError, result?: any) => {
+    if (typeof error !== 'undefined') {
+      callback(error);
+    } else if (cursor >= stack.length) {
+      callback(undefined, result!);
     } else {
       // @ts-ignore
       stack[cursor++](result, recurse);
     }
   };
   recurse(undefined, request);
-  return voidOrPromise;
 };
 
 const sanitizeTtl = (defaultTtl: number) => (ttl?: number | Date) => {
@@ -696,6 +718,17 @@ const sanitizeTtl = (defaultTtl: number) => (ttl?: number | Date) => {
 
 const decodeIncrDecrValue: Decoder = <T>(response: MemcacheResponse, callback: CommandCallback<MemcacheResponse<T>>) => {
   response.value = response.rawValue.readUInt32BE(4);
-  // @ts-ignore
-  callback(undefined, response);
+  callback(undefined, response as MemcacheResponse<T>);
+};
+
+const decodeVersion = (response: MemcacheResponse<Buffer>, callback: CommandCallback<string>) => {
+  callback(undefined, response.value.toString());
+};
+
+const decodeStat = (responses: MemcacheResponse<Buffer>[], callback: CommandCallback<{ [property: string]: string }>) => {
+  callback(undefined, responses.reduce((carry, { key, value }) => {
+    // eslint-disable-next-line no-param-reassign
+    carry[key.toString()] = value.toString();
+    return carry;
+  }, {} as { [property: string]: string }));
 };

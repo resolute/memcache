@@ -101,10 +101,28 @@ test.concurrent('version',
   async () => { assert.strictEqual(/^\d+\.\d+\.\d+/.test(await version()), true); });
 
 // TODO how should this be tested?
-test.concurrent('stat', async () => stat());
+test.concurrent('stat() promise style', async () => stat());
+test('stat() callback style', (done) => {
+  // Callback style does not work with test.concurrent()
+  expect.assertions(2);
+  stat((error, response) => {
+    expect(error).toBeUndefined();
+    expect(response).toBeDefined();
+    done();
+  });
+});
 test.concurrent('stat("slabs")', async () => stat('slabs'));
 test.concurrent('stat("settings")', async () => stat('settings'));
 test.concurrent('stat("sizes")', async () => stat('sizes'));
+test('stat("sizes") callback style', (done) => {
+  // Callback style does not work with test.concurrent()
+  expect.assertions(2);
+  stat('sizes', (error, response) => {
+    expect(error).toBeUndefined();
+    expect(response).toBeDefined();
+    done();
+  });
+});
 
 test.concurrent('response object', async () => {
   const key = randomString(7);
@@ -209,7 +227,7 @@ test.concurrent('invalid `cas` is ignored', async () => {
 // Callback style does not work with test.concurrent()
 test('callback style set', (done) => {
   expect.assertions(2);
-  set(randomString(7), 'callback style set', (error, response) => {
+  set(randomString(7), 'callback style set', (error?, response?) => {
     expect(error).toBeUndefined();
     expect(response).toHaveProperty('status', 0);
     done();
@@ -219,7 +237,7 @@ test('callback style set', (done) => {
 // Callback style does not work with test.concurrent()
 test('callback style incr', (done) => {
   expect.assertions(2);
-  incr(randomString(7), 1, { initial: 1 }, (error, response) => {
+  incr(randomString(7), 1, { initial: 1 }, (error?, response?) => {
     expect(error).toBeUndefined();
     expect(response).toHaveProperty('value', 1);
     done();

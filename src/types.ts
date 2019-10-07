@@ -6,16 +6,35 @@ import MemcacheRequest = require('./request');
 import MemcacheResponse = require('./response');
 import MemcacheError = require('./error');
 
+export interface CommandCallback<T> {
+  (error?: MemcacheError, response?: T): void;
+  // (error: MemcacheError): void;
+  // (error: undefined, response: T): void;
+}
+
 export interface Encoder {
+  // <T, U>(request: T, callback: CommandCallback<U>): void;
+  // <T extends MemcacheRequest, U extends T>(request: T, callback: CommandCallback<U>): void;
   (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>): void;
 }
 
 export interface Decoder {
+  // <T>(response: T, callback: CommandCallback<T>): void;
+  // <T, U>(response: T, callback: CommandCallback<U>): void;
   <T>(response: MemcacheResponse, callback: CommandCallback<MemcacheResponse<T>>): void;
 }
 
 export interface Send {
-  <T extends MemcacheResponse<T> | MemcacheResponse<T>[]>(request: MemcacheRequest, callback: CommandCallback<T>): void;
+  // <R, S>(request: R, callback: CommandCallback<S>): void;
+  // <R extends MemcacheRequest, S extends MemcacheResponse | MemcacheResponse[]>(request: R, callback: CommandCallback<S>): void;
+  // <T extends MemcacheResponse<T> | MemcacheResponse<T>[]>(request: MemcacheRequest, callback: CommandCallback<T>): void;
+  <T>(request: MemcacheRequest, callback: CommandCallback<MemcacheResponse<T> | MemcacheResponse<T>[]>): void;
+}
+
+export interface Wrap {
+  (fn: Encoder | Encoder[], callback?: Encoder | Send): CommandCallback<Encoder | Send>;
+  <T>(fn: Send | Send[], callback?: CommandCallback<T> | Decoder): void;
+  <T>(fn: Decoder[], callback?: CommandCallback<T> | Decoder): void;
 }
 
 export interface Get {
@@ -83,10 +102,6 @@ export interface IncrDecr {
   (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, amount: number, callback: CommandCallback<MemcacheResponse<number>>): void;
   (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, amount: number, ttl: number | Date, callback: CommandCallback<MemcacheResponse<number>>): void;
   (key: string | Buffer | ArrayBuffer | SharedArrayBuffer | DataView, amount: number, options: { ttl?: number | Date, initial?: number, cas?: Buffer | MemcacheResponse }, callback: CommandCallback<MemcacheResponse<number>>): void;
-}
-
-export interface CommandCallback<T> {
-  (error?: MemcacheError, response?: T): any;
 }
 
 export interface MemcacheOptions {

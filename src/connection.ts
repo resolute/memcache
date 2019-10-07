@@ -1,6 +1,6 @@
 /* eslint-disable max-len */
 import { SocketConnectOpts } from 'net';
-import { MemcacheOptions } from './types';
+import { MemcacheOptions, CommandCallback } from './types';
 
 import net = require('net');
 import util = require('util');
@@ -33,7 +33,7 @@ class Connection extends net.Socket {
   public password?: string;
 
   // protected state
-  protected queue: [MemcacheRequest, (error?: MemcacheError, response?: MemcacheResponse<any> | MemcacheResponse<any>[]) => void, NodeJS.Timer | undefined][] = [];
+  protected queue: [MemcacheRequest, CommandCallback<any>, NodeJS.Timer | undefined][] = [];
   protected killed: MemcacheError | false = false;
 
   // private state
@@ -212,7 +212,9 @@ class Connection extends net.Socket {
     this.drain();
   }
 
-  public send<T>(request: MemcacheRequest, callback: (error?: MemcacheError, response?: MemcacheResponse<T> | MemcacheResponse<T>[]) => void) {
+  // public send<R extends MemcacheRequest, S extends MemcacheResponse | MemcacheResponse[]>(request: R, callback: CommandCallback<S>) {
+  // public send<R, S>(request: R, callback: CommandCallback<S>) {
+  public send<T>(request: MemcacheRequest, callback: CommandCallback<MemcacheResponse<T> | MemcacheResponse<T>[]>) {
     debug("send()\nthis.listenerCount('connect')=%s\nthis.queue.length = %s + 1\nrequest: %s",
       this.listenerCount('connect').toLocaleString(),
       this.queue.length.toLocaleString(),
