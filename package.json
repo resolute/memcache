@@ -12,8 +12,7 @@
     "release": "npx np",
     "prepublishOnly": "npm test",
     "clean": "npx del-cli *.js *.js.map *.d.ts",
-    "test": "npx tsc && ./bin/memcached-sasl.sh && npx jest",
-    "coverage": "npm test -- --coverage"
+    "test": "npx tsc && ./bin/memcached-sasl.sh && npx jest --coverage"
   },
   "repository": {
     "type": "git",
@@ -34,11 +33,12 @@
   ],
   "dependencies": {},
   "devDependencies": {
-    "@types/fast-json-stable-stringify": "^2.0.0",
+    "@types/fast-json-stable-stringify": "*",
     "@types/jest": "*",
     "@types/node": "*",
     "@typescript-eslint/eslint-plugin": "*",
     "@typescript-eslint/parser": "*",
+    "codecov": "*",
     "del-cli": "*",
     "eslint": "*",
     "eslint-config-airbnb-base": "*",
