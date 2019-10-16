@@ -8,33 +8,18 @@ import MemcacheError = require('./error');
 
 export interface CommandCallback<T> {
   (error?: MemcacheError, response?: T): void;
-  // (error: MemcacheError): void;
-  // (error: undefined, response: T): void;
+}
+
+export interface Flow<T, U> {
+  (arg: T, callback: CommandCallback<U>): void;
 }
 
 export interface Encoder {
-  // <T, U>(request: T, callback: CommandCallback<U>): void;
-  // <T extends MemcacheRequest, U extends T>(request: T, callback: CommandCallback<U>): void;
   (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>): void;
 }
 
 export interface Decoder {
-  // <T>(response: T, callback: CommandCallback<T>): void;
-  // <T, U>(response: T, callback: CommandCallback<U>): void;
-  <T>(response: MemcacheResponse, callback: CommandCallback<MemcacheResponse<T>>): void;
-}
-
-export interface Send {
-  // <R, S>(request: R, callback: CommandCallback<S>): void;
-  // <R extends MemcacheRequest, S extends MemcacheResponse | MemcacheResponse[]>(request: R, callback: CommandCallback<S>): void;
-  // <T extends MemcacheResponse<T> | MemcacheResponse<T>[]>(request: MemcacheRequest, callback: CommandCallback<T>): void;
-  <T>(request: MemcacheRequest, callback: CommandCallback<MemcacheResponse<T> | MemcacheResponse<T>[]>): void;
-}
-
-export interface Wrap {
-  (fn: Encoder | Encoder[], callback?: Encoder | Send): CommandCallback<Encoder | Send>;
-  <T>(fn: Send | Send[], callback?: CommandCallback<T> | Decoder): void;
-  <T>(fn: Decoder[], callback?: CommandCallback<T> | Decoder): void;
+  <T>(response: MemcacheResponse<any>, callback: CommandCallback<MemcacheResponse<T>>): void;
 }
 
 export interface Get {
@@ -121,16 +106,8 @@ export interface MemcacheOptions {
   password?: string;
   commandTimeout?: number;
   ttl?: number; // Date _not_ allowed here
-  compression?: CompressionOptions | false;
-  serialization?: SerializationOptions | false;
-}
-
-export interface CompressionOptions {
-  flag?: number;
-  options?: ZlibOptions;
-  threshold?: number;
-  compress?: (buf: Buffer, options?: any, callback?: (error: Error | null, result: Buffer) => void) => void;
-  decompress?: (buf: Buffer, options?: any, callback?: (error: Error | null, result: Buffer) => void) => void;
+  compression?: Partial<CompressionOptions> | false;
+  serialization?: Partial<SerializationOptions> | false;
 }
 
 export interface MemcacheRequestOptions {
@@ -144,13 +121,21 @@ export interface MemcacheRequestOptions {
   initial: number;
 }
 
+export interface CompressionOptions {
+  flag: number;
+  options: ZlibOptions;
+  threshold: number;
+  compress: (buf: Buffer, options?: any, callback?: (error: Error | null, result: Buffer) => void) => void;
+  decompress: (buf: Buffer, options?: any, callback?: (error: Error | null, result: Buffer) => void) => void;
+}
+
 export interface SerializationOptions {
-  stringFlag?: number;
-  jsonFlag?: number;
-  binaryFlag?: number;
-  numberFlag?: number;
-  serialize?: (value: any, options?: any) => Buffer | string;
-  deserialize?: (value: string, options?: any) => any;
+  stringFlag: number;
+  jsonFlag: number;
+  binaryFlag: number;
+  numberFlag: number;
+  serialize: (value: any, options?: any) => Buffer | string;
+  deserialize: (value: string, options?: any) => any;
 }
 
 export interface SocketConnectOpts { }

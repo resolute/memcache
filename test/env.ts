@@ -23,14 +23,16 @@ export const portInvalid = process.env.MEMCACHED_PORT_INVALID ?
   parseInt(process.env.MEMCACHED_PORT_INVALID, 10) :
   11111;
 
-export const path = process.env.MEMCACHED_SOCKET || './memcached-latest/memcached.sock';
+export const path = process.env.MEMCACHED_SOCKET || '/tmp/memcached-latest/memcached.sock';
 
-export const server = process.env.MEMCACHED_PATH || './memcached-latest/memcached';
+export const server = process.env.MEMCACHED_PATH || '/tmp/memcached-latest/memcached';
 
-export const saslConf = process.env.SASL_CONF_PATH || './memcached-latest/memcached.conf';
+export const saslConf = process.env.SASL_CONF_PATH || '/tmp/memcached-latest/memcached.conf';
 
-export const saslPwdb = process.env.MEMCACHED_SASL_PWDB || './memcached-latest/memcached-sasl-pwdb';
+export const saslPwdb = process.env.MEMCACHED_SASL_PWDB || '/tmp/memcached-latest/memcached-sasl-pwdb';
 
 export const username = process.env.MEMCACHED_USERNAME || 'foo@bar';
 
 export const password = process.env.MEMCACHED_PASSWORD || 'baz';
+
+export const user = process.env.USER;

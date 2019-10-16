@@ -3,6 +3,12 @@ import {
   SerializationOptions, Encoder, Decoder, CommandCallback,
 } from './types';
 
+interface Deserializer {
+  // (arg: Buffer): Buffer | number | string;
+  // (arg: Buffer, callback: CommandCallback<any>): void
+  (...args: any[]): void;
+}
+
 import util = require('util');
 
 import MemcacheRequest = require('./request');
@@ -10,18 +16,30 @@ import MemcacheResponse = require('./response');
 import MemcacheError = require('./error');
 import MemcacheUtil = require('./util');
 
+const wrappedJsonStringify = (value: any) => JSON.stringify(value);
+const wrappedJsonParse = (string: string) => JSON.parse(string);
+
 export = ({
   stringFlag = 0b0,
   jsonFlag = 0b10,
   binaryFlag = 0b100,
   numberFlag = 0b1000,
-  // TODO since JSON.* methods have option 2nd and 3rd parameters, our
-  // util.callbackWrapper will introduce an Maximum Callstack Error. So, we use
-  // a wrapper beforehand, but maybe this whole callbackWrapper thing isn’t
-  // really going to work.
-  serialize = (value: any) => JSON.stringify(value),
-  deserialize = (string: string) => JSON.parse(string),
-}: SerializationOptions = {}): [Encoder, Decoder] => {
+  serialize = wrappedJsonStringify,
+  deserialize = wrappedJsonParse,
+}: Partial<SerializationOptions> = {}): [Encoder, Decoder] => {
+  // Since JSON.* methods have option 2nd and 3rd parameters, our
+  // MemcacheUtil.callbackWrapper will introduce a Maximum Callstack Error. So,
+  // we will revert to a wrapped version if these native implementations has
+  // been passed.
+  if (serialize === JSON.stringify) {
+    // eslint-disable-next-line no-param-reassign
+    serialize = wrappedJsonStringify;
+  }
+  if (deserialize === JSON.parse) {
+    // eslint-disable-next-line no-param-reassign
+    serialize = wrappedJsonParse;
+  }
+
   const encoder: Encoder = (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>) => {
     // eslint-disable-next-line default-case
     switch (typeof request.value) {
@@ -40,7 +58,7 @@ export = ({
         request.value = (request.value as Function)();
         // recursive when value is a function
         encoder(request, callback);
-        return undefined;
+        return;
       case 'boolean':
       case 'object':
         if (MemcacheUtil.isBufferLike(request.value)) {
@@ -55,45 +73,49 @@ export = ({
             .catch((error: MemcacheError) => {
               callback(error);
             });
-          return undefined;
+          return;
         } else {
           request.flags! |= jsonFlag;
-          MemcacheUtil.callbackWrapper(serialize)(request.value, (error?: MemcacheError, value?: any) => {
-            if (error) {
-              callback(new MemcacheError({
-                message: error.message,
-                status: MemcacheError.ERR_SERIALIZATION,
-                request,
-                error,
-              }));
-            } else {
-              request.value = value;
-              // recursive when using possibly user-defined serializer
-              encoder(request, callback);
-            }
-          });
+          MemcacheUtil.callbackWrapper(serialize)(
+            request.value,
+            (error?: MemcacheError, value?: any) => {
+              if (error) {
+                callback(new MemcacheError({
+                  message: error.message,
+                  status: MemcacheError.ERR_SERIALIZATION,
+                  request,
+                  error,
+                }));
+              } else {
+                request.value = value;
+                // recursive when using possibly user-defined serializer
+                encoder(request, callback);
+              }
+            },
+          );
         }
         break;
     }
     callback(undefined, request);
-    return undefined;
   };
 
   const decoders = ([
     [binaryFlag, (value: Buffer) => value],
     [stringFlag, (value: Buffer) => value.toString()],
     [numberFlag, (value: Buffer) => Number(value.toString())],
-    [jsonFlag, (value: Buffer) => {
+    [jsonFlag, (value: Buffer, callback: CommandCallback<any>) => {
       // Protect simple case where an empty value is flagged as JSON. This
       // wouldn’t happen with the defaults of this client, but it is possible
       // another client (or a custom config of this client) could create this
       // scenario.
       if (value.length === 0) {
-        return undefined;
+        callback(undefined, undefined);
+      } else {
+        MemcacheUtil.callbackWrapper(deserialize)(value, callback);
       }
-      return deserialize(value.toString());
     }],
-  ] as [number, (arg: Buffer) => any][])
+  ] as [number, Deserializer][])
+    .map<[number, Deserializer]>(([flag, fn]) => [flag, MemcacheUtil.callbackWrapper(fn)])
     // Why are we sorting the decoders in descending order of the corresponding
     // configurable flag? Some commands (ex. `incr` and `decr`) allow keys to be
     // created without flags. In those scenarios, the `<MemcacheResponse>.flags`
@@ -105,25 +127,29 @@ export = ({
     // and performed if and only if no other flags matched.
     .sort(([a], [b]) => b - a);
 
-  const decoder: Decoder = <T>(response: MemcacheResponse, callback: CommandCallback<MemcacheResponse<T>>) => {
+  const decoder: Decoder = <T>(
+    response: MemcacheResponse,
+    callback: CommandCallback<MemcacheResponse<T>>,
+  ) => {
     // eslint-disable-next-line no-restricted-syntax
     for (const [flag, decoder] of decoders) {
       if ((response.flags & flag) === flag) {
-        try {
-          response.value = decoder(response.value as Buffer);
-        } catch (error) {
-          callback(new MemcacheError({
-            message: error.message,
-            status: MemcacheError.ERR_SERIALIZATION,
-            response,
-            error,
-          }));
-          return;
-        }
+        decoder(response.value, (error?: MemcacheError, value?: any) => {
+          if (error) {
+            callback(new MemcacheError({
+              message: error.message,
+              status: MemcacheError.ERR_SERIALIZATION,
+              response,
+              error,
+            }));
+          } else {
+            response.value = value;
+            callback(undefined, response as MemcacheResponse<T>);
+          }
+        });
         break;
       }
     }
-    callback(undefined, response as unknown as MemcacheResponse<T>);
   };
 
   return [encoder, decoder];

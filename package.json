@@ -13,7 +13,7 @@
     "prepublishOnly": "npm test",
     "clean": "npx del-cli *.js *.js.map *.d.ts",
     "test": "npx tsc && ./bin/memcached-sasl.sh && npx jest",
-    "coverage": "npm test -- --coverage && open coverage/lcov-report/index.html"
+    "coverage": "npm test -- --coverage"
   },
   "repository": {
     "type": "git",
@@ -34,6 +34,7 @@
   ],
   "dependencies": {},
   "devDependencies": {
+    "@types/fast-json-stable-stringify": "^2.0.0",
     "@types/jest": "*",
     "@types/node": "*",
     "@typescript-eslint/eslint-plugin": "*",
@@ -42,13 +43,15 @@
     "eslint": "*",
     "eslint-config-airbnb-base": "*",
     "eslint-plugin-import": "*",
+    "fast-json-stable-stringify": "*",
     "jest": "*",
     "p-map": "*",
     "prettier": "*",
     "ts-jest": "*",
     "ts-node": "*",
     "tslib": "*",
-    "typescript": "*"
+    "typescript": "*",
+    "yieldable-json": "*"
   },
   "jest": {
     "collectCoverage": false,

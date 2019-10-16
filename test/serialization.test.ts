@@ -4,6 +4,9 @@ import { strict as assert } from 'assert';
 import { port } from './env';
 import { randomString } from './util';
 
+import fastJsonStableStringify = require('fast-json-stable-stringify');
+// @ts-ignore .d.ts file not available
+import yieldableJson = require('yieldable-json');
 import memcache = require('..');
 import MemcacheError = require('../error');
 
@@ -167,4 +170,28 @@ test.concurrent('a serializer that always fails', async () => {
   // @ts-ignore
   const { set } = memcache({ port, serialization });
   assert.rejects(set(key, ['I will not make it…']), { status: ERR_SERIALIZATION });
+});
+
+test.concurrent('fast-json-stable-stringify', async () => {
+  const key = randomString(7);
+  const value = { foo: 'bar' };
+  const { get, set } = memcache({ port, serialization: { serialize: fastJsonStableStringify } });
+  await set(key, value);
+  const response = await get<typeof value>(key);
+  expect(response.value).toStrictEqual(value);
+});
+
+test.concurrent('yieldable-json', async () => {
+  const key = randomString(7);
+  const value = { foo: 'bar' };
+  const { get, set } = memcache({
+    port,
+    serialization: {
+      serialize: yieldableJson.stringifyAsync,
+      deserialize: yieldableJson.parseAsync,
+    },
+  });
+  await set(key, value);
+  const response = await get<typeof value>(key);
+  expect(response.value).toStrictEqual(value);
 });

@@ -1,4 +1,5 @@
 import util = require('util');
+import MemcacheError = require('./error');
 
 export const isBufferLike = (value: any):
   value is Buffer | ArrayBuffer | SharedArrayBuffer | DataView => {
@@ -12,6 +13,8 @@ export const isBufferLike = (value: any):
   return false;
 };
 
+// @ts-ignore
+// eslint-disable-next-line consistent-return
 export const toBuffer = (value: any) => {
   if (Buffer.isBuffer(value)) {
     return value;
@@ -28,7 +31,6 @@ export const toBuffer = (value: any) => {
   if (util.types.isAnyArrayBuffer(value)) {
     return Buffer.from(value);
   }
-  return undefined;
 };
 
 export const extendIfDefined = (ctx: { [key: string]: any }, options: object) => {
@@ -41,30 +43,40 @@ export const extendIfDefined = (ctx: { [key: string]: any }, options: object) =>
 };
 
 export const callbackWrapper = (fn: Function) => (...args: any[]) => {
-  let returnValue: any;
+  const callback = args.pop();
+  if (typeof callback !== 'function') {
+    throw new MemcacheError({
+      message: 'callbackWrapper invoked without a callback as last parameter.',
+    });
+  }
+  let callbackCalled = false;
+  const handler = (error?: Error, result?: any) => {
+    if (callbackCalled) {
+      return;
+    }
+    callbackCalled = true;
+    callback(error, result);
+  };
+  let syncReturn: any;
   let syncError: Error | undefined;
   try {
-    returnValue = fn(...args);
+    syncReturn = fn(...args, handler);
   } catch (error) {
     syncError = error;
-  }
-  const callback = args[args.length - 1];
-  if (typeof callback !== 'function') {
-    return;
   }
   if (typeof syncError !== 'undefined') {
     // TODO make sure syncError is not falsey to avoid anti-pattern in Node
     // callback style:
-    callback(syncError);
+    handler(syncError);
     return;
   }
-  if (util.types.isPromise(returnValue)) {
-    returnValue
-      .then((value: any) => { callback(undefined, value); })
-      .catch((error: any) => { callback(error); });
+  if (util.types.isPromise(syncReturn)) {
+    syncReturn
+      .then((value: any) => { handler(undefined, value); })
+      .catch((error: any) => { handler(error); });
     return;
   }
-  if (typeof returnValue !== 'undefined') {
-    callback(undefined, returnValue);
+  if (typeof syncReturn !== 'undefined') {
+    handler(undefined, syncReturn);
   }
 };

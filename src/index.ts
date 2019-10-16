@@ -1,7 +1,7 @@
 /* eslint-disable max-len */
 import {
   MemcacheOptions, MemcacheRequestOptions, CommandCallback,
-  Encoder, Decoder, Send,
+  Encoder, Decoder, Flow,
   Get, SetReplace, Add, IncrDecr, Del, AppendPrepend, Gat,
   Flush, Touch, Version, Stat,
 } from './types';
@@ -212,7 +212,6 @@ const memcache = (options: MemcacheOptions = {}) => {
     });
     flow(request)([
       send,
-      // @ts-ignore
       decodeVersion,
     ])<string>(callback);
     return returnValue;
@@ -231,7 +230,6 @@ const memcache = (options: MemcacheOptions = {}) => {
       opcode: 0x10,
       key,
     });
-    // @ts-ignore
     flow(request)([
       ...(typeof key === 'undefined' ? [] : [checkKey]),
       send,
@@ -250,7 +248,7 @@ const memcache = (options: MemcacheOptions = {}) => {
   const maxKeySize = options.maxKeySize !== undefined ? options.maxKeySize : 250;
   const maxValueSize = options.maxValueSize !== undefined ? options.maxValueSize : 1_048_576;
 
-  const checkKey: Encoder = (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>) => {
+  const checkKey = (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>) => {
     const { keyAsBuffer } = request;
     let keyLength = 0;
     /* istanbul ignore else */
@@ -264,7 +262,6 @@ const memcache = (options: MemcacheOptions = {}) => {
         request,
       }));
     } else {
-      // @ts-ignore
       callback(undefined, request);
     }
   };
@@ -286,7 +283,7 @@ const memcache = (options: MemcacheOptions = {}) => {
     }
   };
 
-  const checkAmount: Encoder = <T extends MemcacheRequest, U extends T>(request: T, callback: CommandCallback<U>) => {
+  const checkAmount = (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>) => {
     let n = request.amount;
     if (typeof n === 'string') {
       n = parseInt(n, 10);
@@ -298,7 +295,6 @@ const memcache = (options: MemcacheOptions = {}) => {
       }));
     } else {
       request.amount = n;
-      // @ts-ignore
       callback(undefined, request);
     }
   };
@@ -676,8 +672,7 @@ const normalizeCallback: {
   return { callback: callback!, returnValue };
 };
 
-// const flow = (request: MemcacheRequest) => (stack: (<T extends MemcacheRequest | MemcacheResponse, U extends MemcacheRequest | MemcacheResponse>(payload: T, callback: CommandCallback<U>) => void)[]) => <Z>(callback: CommandCallback<Z>) => {
-const flow = (request: MemcacheRequest) => (stack: (Send | Encoder | Decoder)[]) => <T>(callback: CommandCallback<T>) => {
+const flow = (request: MemcacheRequest) => (stack: Flow<any, any>[]) => <T>(callback: CommandCallback<T>) => {
   let cursor = 0;
   const recurse = (error?: MemcacheError, result?: any) => {
     if (typeof error !== 'undefined') {
@@ -685,7 +680,6 @@ const flow = (request: MemcacheRequest) => (stack: (Send | Encoder | Decoder)[])
     } else if (cursor >= stack.length) {
       callback(undefined, result!);
     } else {
-      // @ts-ignore
       stack[cursor++](result, recurse);
     }
   };
@@ -716,7 +710,7 @@ const sanitizeTtl = (defaultTtl: number) => (ttl?: number | Date) => {
   return defaultTtl;
 };
 
-const decodeIncrDecrValue: Decoder = <T>(response: MemcacheResponse, callback: CommandCallback<MemcacheResponse<T>>) => {
+const decodeIncrDecrValue = <T>(response: MemcacheResponse, callback: CommandCallback<MemcacheResponse<T>>) => {
   response.value = response.rawValue.readUInt32BE(4);
   callback(undefined, response as MemcacheResponse<T>);
 };

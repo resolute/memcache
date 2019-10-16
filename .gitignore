@@ -5,7 +5,5 @@ node_modules
 *.js
 *.js.map
 *.d.ts
-/lib
 /coverage
-/memcached-latest
 /.clinic

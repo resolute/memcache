@@ -97,7 +97,7 @@ class MemcacheRequest {
   // eslint-disable-next-line consistent-return, getter-return
   public get casAsBuffer() {
     if (typeof this.cas === 'undefined') {
-      return undefined;
+      return;
     }
     const buffer = (Buffer.isBuffer(this.cas))
       ? MemcacheUtil.toBuffer(this.cas)

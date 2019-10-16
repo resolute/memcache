@@ -212,8 +212,6 @@ class Connection extends net.Socket {
     this.drain();
   }
 
-  // public send<R extends MemcacheRequest, S extends MemcacheResponse | MemcacheResponse[]>(request: R, callback: CommandCallback<S>) {
-  // public send<R, S>(request: R, callback: CommandCallback<S>) {
   public send<T>(request: MemcacheRequest, callback: CommandCallback<MemcacheResponse<T> | MemcacheResponse<T>[]>) {
     debug("send()\nthis.listenerCount('connect')=%s\nthis.queue.length = %s + 1\nrequest: %s",
       this.listenerCount('connect').toLocaleString(),
