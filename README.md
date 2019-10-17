@@ -31,7 +31,7 @@ where you may wish to disable or change the default behavior.
 
 ``` js
 const memcache = require('@resolute/memcache');
-const cache = memcache(options);
+const cache = memcache({ /* options */ });
 ```
 
 ### Options
@@ -194,36 +194,32 @@ of any [MemcacheResponse](#memcacheresponse) using the `.flags` getter.
 
 ## Compression
 
-| Options      | Default                  | Description                                                              |
-| ------------ | ------------------------ | ------------------------------------------------------------------------ |
-| `flag`       | `0b1`                    | Compression bitmask.                                                     |
-| `options`    | `{ level: 1 }`           | See [Zlib Options](https://nodejs.org/api/zlib.html#zlib_class_options). |
-| `threshold`  | `maxValueSize`           | Compress values larger than `threshold`.                                 |
-| `compress`   | `promisify(zlib.gzip)`   |                                                                          |
-| `decompress` | `promisify(zlib.gunzip)` |                                                                          |
+| Options      | Default        | Description                                                              |
+| ------------ | -------------- | ------------------------------------------------------------------------ |
+| `flag`       | `0b1`          | Compression bitmask.                                                     |
+| `options`    | `{ level: 1 }` | See [Zlib Options](https://nodejs.org/api/zlib.html#zlib_class_options). |
+| `threshold`  | `maxValueSize` | Compress values larger than `threshold`.                                 |
+| `compress`   | `zlib.gzip`    |                                                                          |
+| `decompress` | `zlib.gunzip`  |                                                                          |
 
-By default, the client uses `promisify`’d Node’s internal `zlib.gzip` and
-`zlib.gunzip` for values that exceed `compression.threshold`.
+By default, the client uses Node’s internal `zlib.gzip` and `zlib.gunzip` for
+values that exceed `compression.threshold`.
 
 To disable compression completely *for both storage and retrieval*, pass 
 `{ compression: false }` when initializing the Memcache client.
 
-To change the compression format, simply pass a promise-based variant. For
+To change the compression format, simply pass any compression utility. For
 example, to use Brotli compression instead of Gzip:
 
 ``` js
-const { promisify } = require('util');
 const { brotliCompress, brotliDecompress } = require('zlib');
 const compression = {
-    compress: promisify(brotliCompress),
-    decompress: promisify(brotliDecompress),
+    compress: brotliCompress,
+    decompress: brotliDecompress,
     flag: 0b100000 // match another brotli-enabled client
 }
 const cache = memcache({ compression });
 ```
-
-TODO: overloading Compression and also Serialization
-
 
 ## Serialization
 
@@ -237,40 +233,49 @@ TODO: overloading Compression and also Serialization
 | `deserialize` | `JSON.parse`     |                                                       |
 
 All `value`s are sent to and received from the server as a `Buffer` over the
-binary protocol. By default, the client performs useful transformations in the
-following order:
+binary protocol. By default, the client performs useful transformations
+accordingly:
 
-1. Serialization.
-   1. **undefined** is sent as a 0-byte `Buffer` and `jsonFlag` is set.
-   2. **string** is converted to `Buffer` and `stringFlag` is set.
-   3. **number** is converted to a `string` then `Buffer` and `numberFlag` is
-      set.
-   4. Any **Buffer-like** value is passed to Compression as-is and `binaryFlag`
-      is set.
-   5. **Any** other non-Buffer type (`object`, `array`, `boolean`, `null`, etc.)
-      is passed to `JSON.stringify`, converted to `Buffer` and `jsonFlag` is
-      set.
-2. Deserialization.
-   1. `binaryFlag`: `response.value` as-is (a `Buffer`)
-   2. `stringFlag`: `response.value.toString()`
-   3. `numberFlag`: `Number(response.value.toString())`
-   4. `jsonFlag`: `undefined` if `response.value.length === 0` otherwise, return
-      of `deserialize(response.value)`
+| `typeof value`         | `flags` set  | `Buffer` Encoding                  |
+| ---------------------- | ------------ | ---------------------------------- |
+| `undefined`            | `0`          | `Buffer.alloc(0)`                  |
+| `string`               | `stringFlag` | `Buffer.from(<string>)`            |
+| `number`               | `numberFlag` | `Buffer.from(<number>.toString())` |
+| [Buffer](#buffer)-like | `binaryFlag` | as-is                              |
+| _any_<sup>*</sup>      | `jsonFlag`   | `Buffer.from(serialize(<value>))`  |
 
-You may substitute the default JSON serialize with your own or with powerful
-alternatives like
-[fast-json-stable-stringify](https://www.npmjs.com/package/fast-json-stable-stringify)
-or [yieldable-json](https://www.npmjs.com/package/yieldable-json).
+<sup>*</sup> `object` (non-Buffer), `array`, `boolean`, `null`, etc. is passed to `serialize` then converted to `Buffer` and `jsonFlag` is set.
 
-Example using fast-json-stable-stringify:
+Similarly, retrieval commands ([`get`](#get), [`gat`](#gat)) decode the response value by:
+
+| `response.flag` | `response.value` Buffer Decoding                                                         |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| `binaryFlag`    | `<Buffer>` (as is)                                                                       |
+| `stringFlag`    | `<Buffer>.toString()`                                                                    |
+| `numberFlag`    | `Number(<Buffer>.toString())`                                                            |
+| `jsonFlag`      | if `<Buffer>.length === 0` then `undefined` otherwise `deserialize(<Buffer>.toString())` |
+
+You may substitute the default JSON serializer/deserializer with with other
+powerful alternatives, like:
+
+[yieldable-json](https://www.npmjs.com/package/yieldable-json):
 ```js
-const { promisify } = require('util');
 const { stringifyAsync, parseAsync } = require('yieldable-json');
 const serialization = {
-    serialize: promisify(stringifyAsync),
-    deserialize: promisify(parseAsync)
+    serialize: stringifyAsync,
+    deserialize: parseAsync,
 };
-const { get, set, … } = memcache({ serialization })
+const { get, set } = memcache({ serialization })
+```
+
+[fast-json-stable-stringify](https://www.npmjs.com/package/fast-json-stable-stringify):
+```js
+const fastJsonStableStringify = require('fast-json-stable-stringify');
+const serialization = {
+    serialize: fastJsonStableStringify,
+    // and still use the default JSON.parse for deserialize
+};
+const { get, set } = memcache({ serialization })
 ```
 
 ## Buffer
@@ -329,7 +334,7 @@ reference the check-and-set value. [`flags`](#flags) may also be referenced if
 you have special requirements for handling them.
 
 ```js
-const response = get('foo');
+const response = await get('foo');
 
 // the final value after all deserialization and decompression:
 response.value;
@@ -383,8 +388,6 @@ MemcacheError {
 | client  | ERR_INVALID                               | 0x0102 |
 | client  | ERR_COMPRESSION                           | 0x0103 |
 | client  | ERR_SERIALIZATION                         | 0x0104 |
-
-These errors are bound to the `memcache` object and may be referenced like the following example:
 
 ```js
 const { ERR_KEY_NOT_FOUND } = require('@resolute/memcache/error');
@@ -625,7 +628,7 @@ incr(key, 0)` to retrieve the number. See [Incr/Decr](#incr-decr).
 const { incr, del } = memcache();
 
 // example of unexpected `typeof response.value`:
-await del('foo').catch(()=>{}); // ignore any error
+await del('foo').catch(() => {}); // ignore any error
 await incr('foo', 1, { initial: 1 }); // but no flags set
 const { value } = await get('foo');
 typeof value === 'string'; // true
@@ -665,7 +668,7 @@ the counter may cause the counter to wrap.
 **Example**
 ```js
 const { decr, del } = memcache();
-await del('foo').catch(()=>{}); // ignore any error
+await del('foo').catch(() => {}); // ignore any error
 await decr('foo', 1, { initial: 10 }); // .value === 10
 await decr('foo', 1); // .value === 9
 await decr('foo', 10); // .value === 0 (not -1)
