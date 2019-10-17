@@ -17,7 +17,12 @@ const numberFlag = 0b1000;
 const { set, get } = memcache({
   port,
   serialization: {
-    stringFlag, jsonFlag, binaryFlag, numberFlag,
+    stringFlag,
+    jsonFlag,
+    binaryFlag,
+    numberFlag,
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
   },
 });
 const { ERR_SERIALIZATION } = MemcacheError;
@@ -125,6 +130,14 @@ test.concurrent('malformed JSON', async () => {
   return assert.rejects(get(key), { status: ERR_SERIALIZATION });
 });
 
+test.concurrent('0-byte/empty string with JSON flag → undefined', async () => {
+  const key = randomString(7);
+  await set(key, '', { flags: jsonFlag });
+  const response = await get(key);
+  assert.strictEqual(response.flags & jsonFlag, jsonFlag);
+  expect(response.value).toBeUndefined();
+});
+
 test.concurrent('Symbol ~ empty string since Symbol.toString() is always undefined', async () => {
   const key = randomString(7);
   const symbol = Symbol('foo');
@@ -143,13 +156,19 @@ test.concurrent('value = Function', async () => {
   assert.strictEqual(response.flags, stringFlag);
 });
 
-test.concurrent('value = Promise', async () => {
+test.concurrent('value = Promise that resolves', async () => {
   const key = randomString(7);
   const value = 'foo';
   await set(key, Promise.resolve(value));
   const response = await get<string>(key);
   assert.strictEqual(response.value, value);
   assert.strictEqual(response.flags, stringFlag);
+});
+
+test.concurrent('value = Promise that rejects', async () => {
+  const key = randomString(7);
+  const error = new Error('foo');
+  return assert.rejects(set(key, Promise.reject(error)), { status: ERR_SERIALIZATION, error });
 });
 
 test.concurrent('value = async Function', async () => {
@@ -170,6 +189,40 @@ test.concurrent('a serializer that always fails', async () => {
   // @ts-ignore
   const { set } = memcache({ port, serialization });
   assert.rejects(set(key, ['I will not make it…']), { status: ERR_SERIALIZATION });
+});
+
+test.concurrent('a serializer that returns a Buffer', async () => {
+  const key = randomString(7);
+  const value = ['I will be JSON in a Buffer'];
+  const serialization = {
+    serialize: (value: string) => Buffer.from(JSON.stringify(value)),
+  };
+  const { set, get } = memcache({ port, serialization });
+  await set(key, value);
+  const response = await get<typeof value>(key);
+  expect(response).toHaveProperty('flags', jsonFlag);
+  expect(response).toHaveProperty('status', 0);
+  expect(response).toHaveProperty('value', ['I will be JSON in a Buffer']);
+});
+
+test.concurrent('a synchronous serializer that returns a promise', async () => {
+  const key = randomString(7);
+  const serialization = {
+    serialize: (value: string) => Promise.resolve(JSON.stringify(value)),
+  };
+  // @ts-ignore
+  const { set } = memcache({ port, serialization });
+  const response = await set(key, ['I will do just fine.']);
+  expect(response).toHaveProperty('status', 0);
+});
+
+test.concurrent('`serialization: false` yields a Buffer response.value', async () => {
+  const key = randomString(7);
+  const value = Buffer.from('bar');
+  const { get, set } = memcache({ port, serialization: false });
+  await set(key, value);
+  const response = await get<Buffer>(key);
+  assert.strictEqual(value.equals(response.value), true);
 });
 
 test.concurrent('fast-json-stable-stringify', async () => {

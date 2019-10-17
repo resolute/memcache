@@ -37,7 +37,7 @@ export = ({
   }
   if (deserialize === JSON.parse) {
     // eslint-disable-next-line no-param-reassign
-    serialize = wrappedJsonParse;
+    deserialize = wrappedJsonParse;
   }
 
   const encoder: Encoder = (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>) => {
@@ -48,7 +48,9 @@ export = ({
         break;
       case 'string':
         // string will be Buffer.from(<String>) by MemcacheRequest
-        request.flags! |= stringFlag;
+        if ((request.flags! & jsonFlag) !== jsonFlag) {
+          request.flags! |= stringFlag;
+        }
         break;
       case 'number':
         // number will be Buffer.from(<Number>.toString()) by MemcacheRequest
@@ -62,7 +64,9 @@ export = ({
       case 'boolean':
       case 'object':
         if (MemcacheUtil.isBufferLike(request.value)) {
-          request.flags! |= binaryFlag;
+          if ((request.flags! & jsonFlag) !== jsonFlag) {
+            request.flags! |= binaryFlag;
+          }
         } else if (util.types.isPromise(request.value)) {
           (request.value as Promise<unknown>)
             .then((value: any) => {
@@ -71,7 +75,12 @@ export = ({
               encoder(request, callback);
             })
             .catch((error: MemcacheError) => {
-              callback(error);
+              callback(new MemcacheError({
+                message: error.message,
+                status: MemcacheError.ERR_SERIALIZATION,
+                request,
+                error,
+              }));
             });
           return;
         } else {
@@ -93,6 +102,7 @@ export = ({
               }
             },
           );
+          return;
         }
         break;
     }

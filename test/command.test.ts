@@ -20,9 +20,7 @@ const {
 const {
   get, set, add, replace, incr, decr, append, prepend,
   touch, gat, del, version, stat,
-} = memcache({
-  port, maxKeySize: 250, maxValueSize: 1_048_576, compression: false,
-});
+} = memcache({ port, maxKeySize: 250, maxValueSize: 1_048_576 });
 
 test.concurrent('ttl', async () => {
   const key = randomString(7);
@@ -241,5 +239,20 @@ test('callback style incr', (done) => {
     expect(error).toBeUndefined();
     expect(response).toHaveProperty('value', 1);
     done();
+  });
+});
+
+// Callback style does not work with test.concurrent()
+test('callback style append', (done) => {
+  const key = randomString(7);
+  expect.assertions(2);
+  set(key, 'ab', () => {
+    append(key, 'c', () => {
+      get(key, (error?, response?) => {
+        expect(error).toBeUndefined();
+        expect(response).toHaveProperty('value', 'abc');
+        done();
+      });
+    });
   });
 });

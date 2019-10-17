@@ -299,16 +299,6 @@ const memcache = (options: MemcacheOptions = {}) => {
     }
   };
 
-  const register = (encoder?: Encoder, decoder?: Decoder) => {
-    if (encoder) {
-      encoders.unshift(encoder);
-    }
-    if (decoder) {
-      decoders.push(decoder);
-    }
-    return ctx;
-  };
-
   const ctx = {
     /**
      * Get the value for the given key.
@@ -602,24 +592,38 @@ const memcache = (options: MemcacheOptions = {}) => {
     delete: del,
     increment: incr,
     decrement: decr,
-    on: connection.on.bind(connection),
-    kill: connection.kill.bind(connection),
+
+    // Context Bindings
+    options, // client options unmodified
+    connection, // underlying Socket
     send,
     destroy: connection.destroy.bind(connection),
-    connection, // underlying Socket
-    register,
+    kill: connection.kill.bind(connection),
+    on: (event: string, listener: (...args: any[]) => void) => {
+      connection.on(event, listener);
+      return ctx;
+    },
+    register: (encoder?: Encoder, decoder?: Decoder) => {
+      if (encoder) {
+        encoders.unshift(encoder);
+      }
+      if (decoder) {
+        decoders.push(decoder);
+      }
+      return ctx;
+    },
   };
 
   // default compression
   if (options.compression !== false) {
-    register(...MemcacheCompression({
+    ctx.register(...MemcacheCompression({
       threshold: options.maxValueSize,
       ...options.compression,
     }));
   }
   // default serialization
   if (options.serialization !== false) {
-    register(...MemcacheSerialization(
+    ctx.register(...MemcacheSerialization(
       options.serialization,
     ));
   }

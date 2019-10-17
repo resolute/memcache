@@ -26,7 +26,7 @@ test.concurrent('fails when `retries` exceeded', async () => {
 
 // test manual `.kill()` termination
 test.concurrent('dies when `.kill()` invoked', async () => {
-  const cache = memcache({ port });
+  const cache = memcache();
   const deferred = assert.rejects(new Promise((_resolve, reject) => {
     cache.on('kill', reject);
   }), { status: ERR_CONNECTION });
