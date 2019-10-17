@@ -121,7 +121,7 @@ export = ({
       if (value.length === 0) {
         callback(undefined, undefined);
       } else {
-        MemcacheUtil.callbackWrapper(deserialize)(value, callback);
+        MemcacheUtil.callbackWrapper(deserialize)(value.toString(), callback);
       }
     }],
   ] as [number, Deserializer][])

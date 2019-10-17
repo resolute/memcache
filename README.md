@@ -658,7 +658,7 @@ cache.on('kill', (error) => {
 
 The [`set`](#set), [`add`](#add), [`replace`](#replace) commands accept a
 `flags` property on the optional `options` parameter. When using the default
-serialization and/or the compression functions, flags are set using bitmasks
+serialization and/or the compression functions, flags are set using bitmask
 against `stringFlag`, `jsonFlag`, `binaryFlag`, `numberFlag`, and
 `compressionFlag`.
 

@@ -1,4 +1,3 @@
-/* eslint-disable max-len */
 import { SocketConnectOpts } from 'net';
 import { MemcacheOptions, CommandCallback } from './types';
 
@@ -107,27 +106,27 @@ class Connection extends net.Socket {
           clearTimeout(this.connectTimer);
           this.connectTimer = undefined;
         }
+        // Only retry if the connection has not been `kill()`ed.
+        if (this.killed !== false) {
+          return;
+        }
         if (this.attempt >= this.retries) {
           this.kill(new MemcacheError({
-            message: `Failed to connect to ${this.socketConnectString} after ${this.attempt.toLocaleString()} attempt${this.attempt !== 1 ? 's' : /* istanbul ignore next */ ''}.`,
+            message: `Failed to connect to ${this.socketConnectString} after ${this.attempt.toLocaleString()} attempt${this.attempt !== 1 ? 's' : ''}.`,
             status: MemcacheError.ERR_CONNECTION,
           }));
           return;
         }
-        // Only retry if the connection has not been `kill()`ed.
-        /* istanbul ignore else */
-        if (this.killed === false) {
-          const delay = Math.min(this.maxDelay, this.backoff(this.attempt));
-          this.attempt += 1;
-          debug('retry in %s ms', delay.toLocaleString());
-          // Retry this.connect() after backoff milliseconds. Similarly to the
-          // connect timer, the retry timer should never prevent the Node
-          // process from terminating.
-          setTimeout(
-            this.connect.bind(this),
-            delay,
-          ).unref();
-        }
+        const delay = Math.min(this.maxDelay, this.backoff(this.attempt));
+        this.attempt += 1;
+        debug('retry in %s ms', delay.toLocaleString());
+        // Retry this.connect() after backoff milliseconds. Similarly to the
+        // connect timer, the retry timer should never prevent the Node
+        // process from terminating.
+        setTimeout(
+          this.connect.bind(this),
+          delay,
+        ).unref();
       })
 
       .setNoDelay(true)
@@ -154,6 +153,12 @@ class Connection extends net.Socket {
       this.connectTimeout,
     ).unref();
 
+    this.sasl();
+
+    return super.connect(this.socketConnectOptions);
+  }
+
+  public sasl() {
     // frontload our auth request if not already in front
     if (
       this.username &&
@@ -163,37 +168,35 @@ class Connection extends net.Socket {
       )
     ) {
       debug('sasl frontload on send queue');
-      // Does _not_ use the `commandTimeout`, because user is not
-      // depending on this command explicitly. Instead, user commands will
-      // timeout independently and this SASL auth command will also never
-      // keep the Node process running by itself.
       const request = new MemcacheRequest({
         opcode: 0x21,
         key: Buffer.from('PLAIN'),
         value: Buffer.from(`\x00${this.username}\x00${this.password}`),
       });
       const callback = (error?: MemcacheError) => {
-        if (!error) {
-          return;
-        }
-        // It is possible that the user supplied a username/password, but the
-        // server is _not_ compiled with SASL support. In this case, we 1) log a
-        // warning, 2) zero out the username and password, 3) allow future
-        // commands to proceed.
-        if (error.status === MemcacheError.ERR_UNKNOWN_COMMAND) {
-          debug('sasl not supported by server, disabling sasl on the client');
-          process.emitWarning(`server at ${this.socketConnectString} does not support SASL. Disabling SASL on the client.`, 'MemcacheWarning');
-          this.username = undefined;
-          this.password = undefined;
-        } else {
-          this.kill(error);
+        if (error) {
+          // It is possible that the user supplied a username/password, but the
+          // server is _not_ compiled with SASL support. In this case, we 1) log a
+          // warning, 2) zero out the username and password, 3) allow future
+          // commands to proceed.
+          if (error.status === MemcacheError.ERR_UNKNOWN_COMMAND) {
+            debug('sasl not supported by server, disabling sasl on the client');
+            process.emitWarning(`server at ${this.socketConnectString} does not support SASL. Disabling SASL on the client.`, 'MemcacheWarning');
+            this.username = undefined;
+            this.password = undefined;
+          } else {
+            this.kill(error);
+          }
         }
       };
+      // Does _not_ use the `commandTimeout`, because user is not
+      // depending on this command explicitly. Instead, user commands will
+      // timeout independently and this SASL auth command will also never
+      // keep the Node process running by itself.
       this.queue.unshift([request, callback, undefined]);
     }
-
-    return super.connect(this.socketConnectOptions);
   }
+
 
   public drain() {
     debug('drain(): queue.length=%s sendPointer=%s',
@@ -212,7 +215,11 @@ class Connection extends net.Socket {
     this.drain();
   }
 
-  public send<T>(request: MemcacheRequest, callback: CommandCallback<MemcacheResponse<T> | MemcacheResponse<T>[]>) {
+  public send<T>(
+    request: MemcacheRequest,
+    callback: CommandCallback<MemcacheResponse<T> | MemcacheResponse<T>[]>,
+  ) {
+    // const callback = MemcacheUtil.singleTapCallback(rawCallback);
     debug("send()\nthis.listenerCount('connect')=%s\nthis.queue.length = %s + 1\nrequest: %s",
       this.listenerCount('connect').toLocaleString(),
       this.queue.length.toLocaleString(),
@@ -235,6 +242,7 @@ class Connection extends net.Socket {
         status: MemcacheError.ERR_CONNECTION,
         request,
       }));
+      // this.queue.splice(this.queue.findIndex(([haystack]) => haystack === request), 1);
     }, this.commandTimeout);
     this.queue.push([request, callback, timer]);
     this.ref();
@@ -296,7 +304,7 @@ class Connection extends net.Socket {
     // running. this.unref() will only unref the connection if this.queue.length
     // === 0 and the connection is actually active.
     this.unref();
-    /* istanbul ignore next */
+    /* istanbul ignore next: this _should_ never be reachable */
     if (typeof responder === 'undefined') {
       // If you encounter this error, please open an issue in GitHub. This
       // should never occur, but I guess it is technically possible. The only
@@ -304,23 +312,17 @@ class Connection extends net.Socket {
       // Memcache Binary Protocol, and match every response to its request.
       // However the performance and maintenance implications do not seem worth
       // it at the time of this writing.
-      /* istanbul ignore next */
       const error = new MemcacheError({
         message: 'Received a response from server, but do not have a matching request.\nPlease file a issue for this at https://github.com/resolute/memcache/issues',
         status: MemcacheError.ERR_UNEXPECTED,
         response: firstResponse,
       });
-      /* istanbul ignore next */
       this.kill(error);
       // eslint-disable-next-line no-console
-      /* istanbul ignore next */ console.error(error);
-      // eslint-disable-next-line no-console
-      /* istanbul ignore next */ console.error(`response.opcode: ${firstResponse.opcode}`);
-      // eslint-disable-next-line no-console
-      /* istanbul ignore next */ console.error(`response.status: ${firstResponse.status}`);
-      // eslint-disable-next-line no-console
-      /* istanbul ignore next */ console.error(`response.value: ${firstResponse.value}`);
-      /* istanbul ignore next */
+      console.error(error,
+        `response.opcode: ${firstResponse.opcode}`,
+        `response.status: ${firstResponse.status}`,
+        `response.value: ${firstResponse.value}`);
       return;
     }
     const [request, callback, timer] = responder;
@@ -357,13 +359,20 @@ class Connection extends net.Socket {
   }
 
   public kill(error?: MemcacheError) {
+    // prevent max call stack from multiple killings
+    if (this.killed) {
+      return;
+    }
     debug('kill(%s)', error);
     this.killed = error || new MemcacheError({
       message: 'Socket explicitly killed.',
       status: MemcacheError.ERR_CONNECTION,
     });
     // eslint-disable-next-line no-restricted-syntax
-    for (const [request, callback] of this.queue) {
+    for (const [request, callback, timer] of this.queue) {
+      if (timer) {
+        clearTimeout(timer);
+      }
       callback({ ...this.killed, request });
     }
     this.destroy(this.killed);

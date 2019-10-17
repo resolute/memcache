@@ -49,7 +49,7 @@ export = ({
       return;
     }
     MemcacheUtil.callbackWrapper(decompress)(
-      response.value,
+      response.value as Buffer,
       options,
       (error: Error | null, result: Buffer) => {
         if (error) {

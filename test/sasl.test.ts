@@ -2,13 +2,13 @@
 
 import { strict as assert } from 'assert';
 import {
-  port, portSasl, username, password,
+  port, portSasl, username, password, portInvalid,
 } from './env';
 
 import memcache = require('../src');
 import MemcacheError = require('../src/error');
 
-const { ERR_AUTHENTICATION_FAILED } = MemcacheError;
+const { ERR_AUTHENTICATION_FAILED, ERR_CONNECTION } = MemcacheError;
 
 // permutations of sasl
 // | #  | server | client | response.status           |
@@ -63,3 +63,19 @@ test.concurrent('sasl:server-yes:client-wrong-pw', async () => assert.rejects(me
   username,
   password: 'X',
 }).set('sasl:server-yes:client-wrong-pw', 'fails'), { status: ERR_AUTHENTICATION_FAILED }));
+
+test.concurrent('sasl and finite `retries` compete to .kill()', async () => {
+  const cache = memcache({
+    port: portInvalid,
+    retries: 1,
+    username: 'foo',
+    password: 'bar',
+  });
+  const response = cache.set('foo', 'bar');
+  return Promise.all([
+    assert.rejects(new Promise((_resolve, reject) => {
+      cache.on('kill', reject);
+    }), { status: ERR_CONNECTION }),
+    assert.rejects(response, { status: ERR_CONNECTION }),
+  ]);
+});

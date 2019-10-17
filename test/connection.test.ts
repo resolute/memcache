@@ -19,14 +19,20 @@ test.concurrent('fails when `retries` exceeded', async () => {
     minDelay: 100,
     maxDelay: 2_000,
   });
-  return assert.rejects(new Promise((_resolve, reject) => {
-    cache.on('kill', reject);
-  }), { status: ERR_CONNECTION });
+  // make sure any commands also get error response
+  const response = cache.set('foo', 'bar');
+  return Promise.all([
+    assert.rejects(new Promise((_resolve, reject) => {
+      cache.on('kill', reject);
+    }), { status: ERR_CONNECTION }),
+    assert.rejects(response, { status: ERR_CONNECTION }),
+  ]);
 });
 
 // test manual `.kill()` termination
 test.concurrent('dies when `.kill()` invoked', async () => {
-  const cache = memcache();
+  const cache = memcache({ port });
+  await cache.version();
   const deferred = assert.rejects(new Promise((_resolve, reject) => {
     cache.on('kill', reject);
   }), { status: ERR_CONNECTION });
@@ -80,4 +86,9 @@ test.concurrent('honors `connectTimeout` especially when connecting to server/fi
       reject(new Error('`connectTimeout` did not work correctly'));
     }, connectTimeout * retries + 1000); // add a little grace period
   }), { status: ERR_CONNECTION });
+});
+
+test.concurrent('default options', async () => {
+  const cache = memcache();
+  assert.strictEqual('127.0.0.1:11211', cache.connection.socketConnectString);
 });

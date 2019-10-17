@@ -61,8 +61,13 @@ test.concurrent('c.r.u.d. commands', async () => {
   await assert.rejects(get(key), { status: ERR_KEY_NOT_FOUND });
 });
 
-test.concurrent('invalid `key` fails',
+test.concurrent('empty `key` fails',
   async () => assert.rejects(get(''),
+    { status: ERR_INVALID }));
+
+test.concurrent('undefined `key` fails',
+  // @ts-ignore
+  async () => assert.rejects(get(),
     { status: ERR_INVALID }));
 
 test.concurrent('`key` too large fails',

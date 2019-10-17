@@ -38,7 +38,7 @@ test.concurrent('alternative compression library (brotli)', async () => {
   const key = randomString(7);
   const compression = {
     flag: 1 << 6, // 0b1000000
-    compress: promisify(brotliCompress), // promisified or
+    compress: promisify(brotliCompress), // promisify or
     decompress: brotliDecompress, // callback style are ok
   };
   const { set, get } = memcache({ port, compression });

@@ -251,7 +251,6 @@ const memcache = (options: MemcacheOptions = {}) => {
   const checkKey = (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>) => {
     const { keyAsBuffer } = request;
     let keyLength = 0;
-    /* istanbul ignore else */
     if (keyAsBuffer) {
       keyLength = keyAsBuffer.length;
     }

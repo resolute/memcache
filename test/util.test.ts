@@ -4,7 +4,7 @@ import MemcacheUtil = require('../src/util');
 
 test.concurrent('`MemcacheUtil.callbackWrapper` without callback', async () => {
   expect(() => {
-    MemcacheUtil.callbackWrapper(() => { })('foo');
+    MemcacheUtil.callbackWrapper((arg: string) => arg)('foo');
   }).toThrow();
 });
 

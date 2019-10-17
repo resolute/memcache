@@ -42,21 +42,31 @@ export const extendIfDefined = (ctx: { [key: string]: any }, options: object) =>
   }
 };
 
-export const callbackWrapper = (fn: Function) => (...args: any[]) => {
-  const callback = args.pop();
-  if (typeof callback !== 'function') {
+export const singleTapCallback = <T extends Function>(fn: T): T => {
+  if (typeof fn !== 'function') {
     throw new MemcacheError({
       message: 'callbackWrapper invoked without a callback as last parameter.',
     });
   }
-  let callbackCalled = false;
-  const handler = (error?: Error, result?: any) => {
-    if (callbackCalled) {
-      return;
+  let called = false;
+  return ((...args: any[]) => {
+    if (!called) {
+      called = true;
+      fn(...args);
     }
-    callbackCalled = true;
-    callback(error, result);
-  };
+  }) as unknown as T;
+};
+
+export const callbackWrapper = <T extends Function>(fn: T): T => ((...args: any[]) => {
+  const handler = singleTapCallback(args.pop());
+  // let callbackCalled = false;
+  // const handler = (error?: Error, result?: any) => {
+  //   if (callbackCalled) {
+  //     return;
+  //   }
+  //   callbackCalled = true;
+  //   callback(error, result);
+  // };
   let syncReturn: any;
   let syncError: Error | undefined;
   try {
@@ -79,4 +89,4 @@ export const callbackWrapper = (fn: Function) => (...args: any[]) => {
   if (typeof syncReturn !== 'undefined') {
     handler(undefined, syncReturn);
   }
-};
+}) as unknown as T;
