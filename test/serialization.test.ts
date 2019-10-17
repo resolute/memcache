@@ -7,8 +7,8 @@ import { randomString } from './util';
 import fastJsonStableStringify = require('fast-json-stable-stringify');
 // @ts-ignore .d.ts file not available
 import yieldableJson = require('yieldable-json');
-import memcache = require('..');
-import MemcacheError = require('../error');
+import memcache = require('../src');
+import MemcacheError = require('../src/error');
 
 const stringFlag = 0b0;
 const jsonFlag = 0b10;

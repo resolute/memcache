@@ -4,8 +4,8 @@ import { strict as assert } from 'assert';
 import { portFlush } from './env';
 import { randomString } from './util';
 
-import memcache = require('..');
-import MemcacheError = require('../error');
+import memcache = require('../src');
+import MemcacheError = require('../src/error');
 
 const key = randomString(7);
 const { ERR_KEY_NOT_FOUND } = MemcacheError;

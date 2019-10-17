@@ -6,9 +6,9 @@ import { port } from './env';
 import { randomString } from './util';
 
 
-import memcache = require('..');
-import MemcacheResponse = require('../response');
-import MemcacheError = require('../error');
+import memcache = require('../src');
+import MemcacheResponse = require('../src/response');
+import MemcacheError = require('../src/error');
 const { ERR_INVALID } = MemcacheError;
 
 const EMPTY_CAS = Buffer.alloc(8, 0);

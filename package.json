@@ -12,7 +12,7 @@
     "release": "npx np",
     "prepublishOnly": "npm test",
     "clean": "npx del-cli *.js *.js.map *.d.ts",
-    "test": "npx tsc && ./bin/memcached-sasl.sh && npx jest --coverage"
+    "test": "./bin/memcached-sasl.sh && npx jest"
   },
   "repository": {
     "type": "git",
@@ -54,9 +54,9 @@
     "yieldable-json": "*"
   },
   "jest": {
-    "collectCoverage": false,
+    "collectCoverage": true,
     "collectCoverageFrom": [
-      "<rootDir>/*.js"
+      "<rootDir>/src/*.ts"
     ],
     "coverageDirectory": "coverage",
     "globalSetup": "<rootDir>/test/setup.ts",

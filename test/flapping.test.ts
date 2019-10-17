@@ -4,7 +4,7 @@ import { strict as assert } from 'assert';
 import { portFlappy } from './env';
 import { randomString, floodify, trickle } from './util';
 
-import memcache = require('..');
+import memcache = require('../src');
 
 const key = randomString(7);
 

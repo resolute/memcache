@@ -5,8 +5,8 @@ import {
   port, portSasl, username, password,
 } from './env';
 
-import memcache = require('..');
-import MemcacheError = require('../error');
+import memcache = require('../src');
+import MemcacheError = require('../src/error');
 
 const { ERR_AUTHENTICATION_FAILED } = MemcacheError;
 

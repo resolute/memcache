@@ -3,7 +3,7 @@
 import { port, portInvalid } from './env';
 import { randomString, floodify } from './util';
 
-import memcache = require('..');
+import memcache = require('../src');
 
 const key = randomString(7);
 

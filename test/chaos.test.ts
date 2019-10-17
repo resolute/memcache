@@ -5,7 +5,7 @@ import { port } from './env';
 import { randomString } from './util';
 
 import pMap = require('p-map');
-import memcache = require('..');
+import memcache = require('../src');
 
 const key = randomString(7);
 const { get, set, replace } = memcache({ port });
