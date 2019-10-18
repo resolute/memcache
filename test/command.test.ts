@@ -24,9 +24,8 @@ const {
 
 test.concurrent('ttl', async () => {
   const key = randomString(7);
-  let response: MemcacheResponse;
-  response = await set(key, 'bar', new Date(new Date().valueOf() + 2000));
-  response = await get<string>(key);
+  await set(key, 'bar', new Date(new Date().valueOf() + 2000));
+  const response = await get<string>(key);
   assert.strictEqual(response.value, 'bar');
   await assert.rejects(new Promise((resolve, reject) => {
     setTimeout(() => { get<string>(key).then(resolve, reject); }, 3000);
@@ -182,11 +181,10 @@ test.concurrent('incr/decr alt', async () => {
 
 test.concurrent('append/prepend', async () => {
   const key = randomString(7);
-  let response: MemcacheResponse;
-  response = await set(key, 'b', { ttl: 10 });
-  response = await prepend(key, 'a');
-  response = await append(key, 'c', response.cas);
-  response = await get(key);
+  await set(key, 'b', { ttl: 10 });
+  const { cas } = await prepend(key, 'a');
+  await append(key, 'c', cas);
+  const response = await get(key);
   assert.strictEqual(response.value, 'abc');
 });
 

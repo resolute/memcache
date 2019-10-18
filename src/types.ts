@@ -1,6 +1,5 @@
 /* eslint-disable max-len */
 import { ZlibOptions } from 'zlib';
-import { SocketConnectOpts } from 'net';
 
 import MemcacheRequest = require('./request');
 import MemcacheResponse = require('./response');
@@ -137,5 +136,3 @@ export interface SerializationOptions {
   serialize: (value: any, options?: any) => Buffer | string;
   deserialize: (value: string, options?: any) => any;
 }
-
-export interface SocketConnectOpts { }
