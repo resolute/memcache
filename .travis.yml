@@ -1,0 +1,9 @@
+language: node_js
+node_js:
+  - 12
+  - 10
+before_install:
+  - sudo apt-get install -y libsasl2-dev libevent-dev
+  - ./bin/memcached-sasl.sh
+after_success:
+  - npx codecov

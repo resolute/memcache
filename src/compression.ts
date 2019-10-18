@@ -1,77 +1,69 @@
-import { gzip, gunzip, constants } from 'zlib';
-import { promisify } from 'util';
+import {
+  CompressionOptions, Encoder, Decoder, CommandCallback,
+} from './types';
 
-import MemcacheResponse from './response';
-import MemcacheError, { ERR_COMPRESSION } from './error';
-import { key, value, DefaultOptions, compressFunction, decompressFunction, compressIf } from './types';
-import { toBuffer, extendIfDefined } from './util';
+import zlib = require('zlib');
 
-export default (Base: any) => class extends Base {
+import MemcacheRequest = require('./request');
+import MemcacheResponse = require('./response');
+import MemcacheError = require('./error');
+import MemcacheUtil = require('./util');
 
-    public compressionFlag: number = 1 << 0;
-    public compressIf: compressIf = (key: key, value: Buffer) => value.length > this.maxValueSize;
-    public compressionOptions: any = { level: constants.Z_BEST_SPEED };
-    public compress: compressFunction = promisify(gzip);
-    public decompress: decompressFunction = promisify(gunzip);
-
-    constructor({ compressionFlag, compressIf, compressionOptions, compress, decompress,
-        ...options }: {
-            compressionFlag?: number,
-            compressIf?: compressIf,
-            compressionOptions?: any,
-            compress?: compressFunction,
-            decompress?: decompressFunction,
-        } = {}) {
-
-        super(options);
-
-        extendIfDefined(this, { compressionFlag, compressIf, compressionOptions, compress, decompress })
+export = ({
+  flag = 0b1,
+  threshold = 1_048_576,
+  options = { level: zlib.constants.Z_BEST_SPEED },
+  compress = zlib.gzip,
+  decompress = zlib.gunzip,
+}: Partial<CompressionOptions> = {}): [Encoder, Decoder] => ([
+  // encoder
+  (request: MemcacheRequest, callback: CommandCallback<MemcacheRequest>) => {
+    const buffer = request.valueAsBuffer;
+    if (typeof buffer === 'undefined' || buffer.length <= threshold) {
+      callback(undefined, request);
+      return;
     }
-
-    protected async decode(response: MemcacheResponse) {
-        const responseSuper = await super.decode(response);
-        {
-            const response = responseSuper;
-            if ((response.flags & this.compressionFlag) === 0) {
-                return response;
-            }
-            try {
-                response.value = await this.decompress(response.value, this.compressionOptions);
-            } catch (error) {
-                throw new MemcacheError({
-                    message: error.message,
-                    status: ERR_COMPRESSION,
-                    response,
-                    error
-                });
-            }
-            return response;
+    MemcacheUtil.callbackWrapper(compress)(
+      buffer,
+      options,
+      (error: Error | null, result: Buffer) => {
+        if (error) {
+          callback(new MemcacheError({
+            message: error.message,
+            status: MemcacheError.ERR_COMPRESSION,
+            request,
+            error,
+          }));
+        } else {
+          request.value = result;
+          request.flags! |= flag;
+          callback(undefined, request);
         }
+      },
+    );
+  },
+  // decoder
+  <T>(response: MemcacheResponse, callback: CommandCallback<MemcacheResponse<T>>) => {
+    if ((response.flags & flag) !== flag) {
+      callback(undefined, response as unknown as MemcacheResponse<T>);
+      return;
     }
-
-    protected async encode(key: key, value: value, options: DefaultOptions) {
-        const valueBuffer = toBuffer(value);
-        if (!this.compressIf(key, valueBuffer)) {
-            return super.encode(key, value, options);
+    MemcacheUtil.callbackWrapper(decompress)(
+      response.value as Buffer,
+      options,
+      (error: Error | null, result: Buffer) => {
+        if (error) {
+          callback(new MemcacheError({
+            message: error.message,
+            status: MemcacheError.ERR_COMPRESSION,
+            response,
+            error,
+          }));
+        } else {
+          response.value = result;
+          callback(undefined, response as unknown as MemcacheResponse<T>);
         }
-        try {
-            return super.encode(
-                key,
-                // value
-                await this.compress(value, this.compressionOptions),
-                // options
-                {
-                    ...options,
-                    flags: options.flags | this.compressionFlag
-                }
-            );
-        } catch (error) {
-            throw new MemcacheError({
-                message: error.message,
-                status: ERR_COMPRESSION,
-                error
-            });
-        }
-    }
-
-}
+      },
+    );
+  },
+])
