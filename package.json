@@ -5,7 +5,8 @@
   "main": "./",
   "types": "./",
   "files": [
-    "./"
+    "*.js",
+    "*.d.ts"
   ],
   "scripts": {
     "build": "npm run clean && npx tsc && npx prettier --write *.js *.d.ts && (npx eslint --fix *.js > /dev/null 2>&1; true)",
