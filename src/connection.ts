@@ -42,7 +42,6 @@ class Connection extends net.Socket {
   private multiResponse: MemcacheResponse[] = [];
   private connectTimer?: NodeJS.Timer;
   private attempt = 1;
-  private _handle: any; // from Node’s internal `net` module
 
   constructor({
     host, port, path, queueSize, commandTimeout, connectTimeout,
@@ -81,14 +80,12 @@ class Connection extends net.Socket {
 
       .on('ready', () => {
         debug('on("ready")');
-        this.ref();
         this.drain();
       })
 
       .on('drain', () => {
         debug('on("drain")');
         this.writeBufferAvailable = true;
-        this.ref();
         this.drain();
       })
 
@@ -251,7 +248,6 @@ class Connection extends net.Socket {
       // this.queue.splice(this.queue.findIndex(([haystack]) => haystack === request), 1);
     }, this.commandTimeout);
     this.queue.push([request, callback, timer]);
-    this.ref();
     this.drain();
   }
 
@@ -306,10 +302,6 @@ class Connection extends net.Socket {
     const responder = this.queue.shift();
     // adjust the sendPointer to reflect the adjusted this.queue size
     this.sendPointer -= 1;
-    // Once this.queue is empty, this socket will _not_ keep the node process
-    // running. this.unref() will only unref the connection if this.queue.length
-    // === 0 and the connection is actually active.
-    this.unref();
     /* istanbul ignore next: this _should_ never be reachable */
     if (typeof responder === 'undefined') {
       // If you encounter this error, please open an issue in GitHub. This
@@ -340,28 +332,6 @@ class Connection extends net.Socket {
     } else {
       callback(new MemcacheError({ request, response: firstResponse }));
     }
-  }
-
-  // net.Socket.ref() performs this check and will add a `connect` listener if
-  // the _handle does not yet exist. This can create too many listeners and
-  // trigger a max listeners exceeded warning.
-  public ref() {
-    // eslint-disable-next-line no-underscore-dangle
-    if (this._handle && this.sendPointer < this.queue.length) {
-      debug('ref()');
-      super.ref();
-    }
-    return this;
-  }
-
-  // same goes for `unref`
-  public unref() {
-    // eslint-disable-next-line no-underscore-dangle
-    if (this._handle && this.queue.length === 0) {
-      debug('unref()');
-      super.unref();
-    }
-    return this;
   }
 
   public kill(error?: MemcacheError) {
