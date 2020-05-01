@@ -199,13 +199,19 @@ class Connection extends net.Socket {
 
 
   public drain() {
-    debug('drain(): queue.length=%s sendPointer=%s',
+    debug('drain(): queue.length=%s sendPointer=%s writable=%s writeBufferAvailable=%s pending=%s',
       this.queue.length.toLocaleString(),
-      this.sendPointer.toLocaleString());
+      this.sendPointer.toLocaleString(),
+      this.writable,
+      this.writeBufferAvailable,
+      // @ts-ignore
+      this.pending);
     if (
       this.sendPointer >= this.queue.length ||
       !this.writeBufferAvailable ||
-      !this.writable
+      !this.writable ||
+      // @ts-ignore
+      this.pending
     ) {
       return;
     }
