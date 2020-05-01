@@ -6,6 +6,8 @@ Memcache client library based on binary protocol.
 [![codecov](https://codecov.io/gh/resolute/memcache/branch/master/graph/badge.svg)](https://codecov.io/gh/resolute/memcache)
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/resolute/memcache.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/resolute/memcache/alerts/)
 [![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/resolute/memcache.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/resolute/memcache/context:javascript)
+[![Dependencies](https://david-dm.org/resolute/memcache.svg)](https://david-dm.org/resolute/memcache)
+[![install size](https://packagephobia.now.sh/badge?p=@resolute/memcache)](https://packagephobia.now.sh/result?p=@resolute/memcache)
 
 ## Key Features
 
