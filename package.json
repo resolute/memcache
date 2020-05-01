@@ -9,11 +9,11 @@
     "*.d.ts"
   ],
   "scripts": {
-    "build": "npm run clean && npx tsc && npx prettier --write *.js *.d.ts && (npx eslint --fix *.js > /dev/null 2>&1; true)",
-    "release": "npx np",
+    "build": "npm run clean && tsc && prettier --write *.js *.d.ts && (eslint --fix *.js > /dev/null 2>&1; true)",
+    "release": "np",
     "prepublishOnly": "npm test && npm run build",
-    "clean": "npx del-cli *.js *.js.map *.d.ts",
-    "test": "./bin/memcached-sasl.sh && npx jest"
+    "clean": "del-cli *.js *.js.map *.d.ts",
+    "test": "./bin/memcached-sasl.sh && jest"
   },
   "repository": {
     "type": "git",
@@ -46,6 +46,7 @@
     "eslint-plugin-import": "*",
     "fast-json-stable-stringify": "*",
     "jest": "*",
+    "np": "*",
     "p-map": "*",
     "prettier": "*",
     "ts-jest": "*",
