@@ -1,12 +1,5 @@
 {
   "eslint.alwaysShowStatus": true,
-  "eslint.autoFixOnSave": true,
-  "eslint.validate": [
-    {
-      "language": "typescript",
-      "autoFix": true
-    },
-  ],
   "editor.tabSize": 2,
   "files.insertFinalNewline": true,
   "files.exclude": {
@@ -14,5 +7,8 @@
     "**/*.js": true,
     "**/*.js.map": true,
     "node_modules": true
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
   }
 }
