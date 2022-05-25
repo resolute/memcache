@@ -19,6 +19,8 @@
     "@typescript-eslint"
   ],
   "rules": {
+    "import/extensions": "off",
+    "import/order": "off",
     "implicit-arrow-linebreak": "off",
     "import/no-unresolved": "off",
     "lines-between-class-members": "off",

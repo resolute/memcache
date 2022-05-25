@@ -72,7 +72,7 @@ export const callbackWrapper = <T extends Function>(fn: T): T => ((...args: any[
   try {
     syncReturn = fn(...args, handler);
   } catch (error) {
-    syncError = error;
+    syncError = error as Error;
   }
   if (typeof syncError !== 'undefined') {
     // TODO make sure syncError is not falsey to avoid anti-pattern in Node

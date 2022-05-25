@@ -14,7 +14,6 @@ import MemcacheConnection = require('./connection');
 import MemcacheCompression = require('./compression');
 import MemcacheSerialization = require('./serialization');
 
-
 /**
  * Create a Memcache client.
  */
@@ -663,8 +662,8 @@ const normalizeCallback: {
     return { callback: arg, returnValue: undefined };
   }
   let callback: CommandCallback<T>;
-  const returnValue: Promise<T> = new Promise((resolve, reject) => {
-    callback = (error?: MemcacheError, response?: T) => {
+  const returnValue = new Promise<T | undefined>((resolve, reject) => {
+    callback = (error, response) => {
       if (typeof error !== 'undefined') {
         reject(error);
       } else {

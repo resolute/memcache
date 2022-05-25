@@ -32,7 +32,6 @@
     "memcached",
     "binary"
   ],
-  "dependencies": {},
   "devDependencies": {
     "@types/fast-json-stable-stringify": "*",
     "@types/jest": "*",
@@ -47,7 +46,7 @@
     "fast-json-stable-stringify": "*",
     "jest": "*",
     "np": "*",
-    "p-map": "*",
+    "p-map": "^3.0.0",
     "prettier": "*",
     "ts-jest": "*",
     "ts-node": "*",
